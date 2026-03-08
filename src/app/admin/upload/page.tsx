@@ -79,7 +79,7 @@ export default function AdminPracticeUpload() {
 
     const handleSave = async () => {
         setSaving(true);
-        let contentJSON: any = { difficulty };
+        const contentJSON: any = { difficulty };
 
         if (skill === "reading") {
             contentJSON.passages = parts;
