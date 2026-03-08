@@ -1,0 +1,106 @@
+// This is your Prisma schema file
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ───────────────────────────────────────────────
+// Auth & User Management
+// ───────────────────────────────────────────────
+
+model User {
+  id            String   @id @default(cuid())
+  name          String?
+  email         String   @unique
+  password      String   // bcrypt-hashed, required for credentials auth
+  role          String   @default("USER")      // USER | ADMIN
+  tier          String   @default("FREE")      // FREE | PRO | PREMIUM
+  tierExpiresAt DateTime?                       // null = lifetime / FREE
+
+  // AI Budget tracking
+  tokenUsage    Int      @default(0)
+  aiUsedCount   Int      @default(0)
+  tokenResetAt  DateTime @default(now())        // reset monthly
+
+  // Security
+  loginAttempts Int      @default(0)
+  lockedUntil   DateTime?
+  lastLoginAt   DateTime?
+  lastLoginIp   String?
+
+  submissions   Submission[]
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// ───────────────────────────────────────────────
+// IELTS Content
+// ───────────────────────────────────────────────
+
+model PracticeSet {
+  id          String    @id @default(cuid())
+  skill       String    // LISTENING | READING | WRITING | SPEAKING
+  title       String
+  description String?
+  difficulty  String    @default("Medium")     // Easy | Medium | Hard
+  isDaily     Boolean   @default(false)
+  activeDate  DateTime?
+  content     String?   // JSON: passage, audio URL, prompt, questions etc.
+  isAIGenerated Boolean @default(false)
+  isActive    Boolean   @default(true)
+
+  submissions  Submission[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Submission {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  practiceSetId String?
+  practiceSet   PracticeSet? @relation(fields: [practiceSetId], references: [id])
+
+  skill         String   // To allow submissions without a set (custom)
+  answers       String   // JSON: user answers or essay text
+  bandScore     Float?
+  feedback      String?  // JSON: detailed AI feedback object
+  transcript    String?  // For speaking: Whisper transcript
+  timeTaken     Int?     // seconds
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// ───────────────────────────────────────────────
+// System & Payment Configuration
+// ───────────────────────────────────────────────
+
+model SystemConfig {
+  key       String @id
+  value     String
+  updatedAt DateTime @updatedAt @default(now())
+}
+
+model Package {
+  id          String   @id @default(cuid())
+  code        String   @unique // e.g., FREE, PRO, PREMIUM
+  name        String
+  price       Int
+  durationDays Int?    // null = lifetime
+  description String
+  benefits    String   // JSON stringified array of benefits
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
