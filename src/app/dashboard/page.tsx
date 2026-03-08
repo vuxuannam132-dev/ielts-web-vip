@@ -2,18 +2,88 @@
 
 import { useSession } from "next-auth/react";
 import Link from "next/link";
+import { useEffect, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
+import confetti from "canvas-confetti";
 import {
     BookOpen, Headphones, PenTool, Mic,
     Flame, Trophy, Target, Zap, CheckCircle2,
-    Calendar, LayoutDashboard, TrendingUp, Settings
+    Calendar, LayoutDashboard, TrendingUp, Settings, Edit2
 } from "lucide-react";
+import { getDailyMissions } from "@/lib/missions";
 
-export default function DashboardPage() {
+function DashboardContent() {
     const { data: session } = useSession();
+    const searchParams = useSearchParams();
     const user = session?.user;
 
     const rank = (user as any)?.tier || "FREE";
     const name = user?.name?.split(" ")[0] || "Học viên";
+
+    const [stats, setStats] = useState({ targetBand: null as number | null, lifetimePracticeCount: 0, currentStreak: 0 });
+    const [isEditingTarget, setIsEditingTarget] = useState(false);
+    const [newTarget, setNewTarget] = useState("");
+
+    const [missions, setMissions] = useState<any[]>([]);
+    const [completedMissions, setCompletedMissions] = useState<number[]>([]);
+    const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+
+    useEffect(() => {
+        if (searchParams.get("upgraded") === "true") {
+            const duration = 3 * 1000;
+            const end = Date.now() + duration;
+
+            const frame = () => {
+                confetti({ particleCount: 5, angle: 60, spread: 55, origin: { x: 0 }, colors: ['#3b82f6', '#10b981', '#f59e0b'] });
+                confetti({ particleCount: 5, angle: 120, spread: 55, origin: { x: 1 }, colors: ['#3b82f6', '#10b981', '#f59e0b'] });
+                if (Date.now() < end) { requestAnimationFrame(frame); }
+            };
+            frame();
+            setShowUpgradeModal(true);
+            window.history.replaceState({}, '', '/dashboard');
+        }
+    }, [searchParams]);
+
+    useEffect(() => {
+        if (!user?.id) return;
+
+        fetch('/api/user/stats').then(res => res.json()).then(data => {
+            if (data && !data.error) {
+                setStats(data);
+                setNewTarget(data.targetBand?.toString() || "");
+            }
+        });
+
+        const daily = getDailyMissions(user.id);
+        setMissions(daily);
+
+        const todayStr = new Date().toDateString();
+        const storedKey = `missions_done_${user.id}_${todayStr}`;
+        const stored = localStorage.getItem(storedKey);
+        if (stored) setCompletedMissions(JSON.parse(stored));
+    }, [user?.id]);
+
+    const saveTarget = async () => {
+        setIsEditingTarget(false);
+        const val = parseFloat(newTarget);
+        if (isNaN(val)) return;
+        setStats(s => ({ ...s, targetBand: val }));
+        await fetch('/api/user/stats', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ targetBand: val })
+        });
+    };
+
+    const toggleMission = (id: number) => {
+        const todayStr = new Date().toDateString();
+        const storedKey = `missions_done_${user?.id}_${todayStr}`;
+        setCompletedMissions(prev => {
+            const next = prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id];
+            localStorage.setItem(storedKey, JSON.stringify(next));
+            return next;
+        });
+    };
 
     return (
         <div className="min-h-[calc(100vh-4rem)] flex flex-col md:flex-row bg-slate-50">
@@ -63,11 +133,47 @@ export default function DashboardPage() {
 
                 {/* Stats Grid */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <StatCard icon={Target} title="Mục tiêu" value="8.0" color="text-blue-600" bg="bg-blue-50" />
-                    <StatCard icon={Flame} title="Streak" value="3 Ngày" color="text-orange-500" bg="bg-orange-50" />
-                    <StatCard icon={Trophy} title="Band Ước tính" value="6.5" color="text-amber-500" bg="bg-amber-50" />
-                    <StatCard icon={TrendingUp} title="Bài đã làm" value="12" color="text-emerald-600" bg="bg-emerald-50" />
+                    <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center gap-4 relative group">
+                        <div className="h-12 w-12 rounded-xl flex items-center justify-center bg-blue-50"><Target className="h-6 w-6 text-blue-600" /></div>
+                        <div className="flex-1">
+                            <p className="text-sm font-semibold text-slate-500">Mục tiêu</p>
+                            {isEditingTarget ? (
+                                <input
+                                    autoFocus
+                                    type="number" step="0.5" className="w-16 text-2xl font-extrabold text-slate-900 bg-slate-100 rounded px-1 outline-none"
+                                    value={newTarget} onChange={e => setNewTarget(e.target.value)}
+                                    onBlur={saveTarget} onKeyDown={e => e.key === 'Enter' && saveTarget()}
+                                />
+                            ) : (
+                                <div className="flex items-center gap-2 cursor-pointer" onClick={() => setIsEditingTarget(true)}>
+                                    <p className="text-2xl font-extrabold text-slate-900">{stats.targetBand || "N/A"}</p>
+                                    <Edit2 className="h-4 w-4 text-slate-400 opacity-0 group-hover:opacity-100 transition" />
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                    <StatCard icon={Flame} title="Streak" value={`${stats.currentStreak} Ngày`} color="text-orange-500" bg="bg-orange-50" />
+                    <StatCard icon={Trophy} title="Band Ước tính" value={stats.targetBand ? Math.max(0, stats.targetBand - 1.5).toString() : "N/A"} color="text-amber-500" bg="bg-amber-50" />
+                    <StatCard icon={TrendingUp} title="Bài đã làm" value={stats.lifetimePracticeCount.toString()} color="text-emerald-600" bg="bg-emerald-50" />
                 </div>
+
+                {/* VIP UPGRADE CELEBRATION MODAL */}
+                {showUpgradeModal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+                        <div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl transform animate-in zoom-in-95 duration-300 text-center relative overflow-hidden">
+                            <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-br from-amber-400 to-amber-600 -z-0"></div>
+                            <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto shadow-lg mb-6 relative z-10">
+                                <Trophy className="h-10 w-10 text-amber-500" />
+                            </div>
+                            <h2 className="text-2xl font-black text-slate-900 mb-2 relative z-10">Chúc mừng bạn!</h2>
+                            <p className="text-slate-600 mb-6 font-medium relative z-10">Tài khoản của bạn đã được nâng cấp lên hạng VIP. Hệ thống đã mở khóa toàn bộ kho đề đặc quyền cho bạn.</p>
+                            <button onClick={() => setShowUpgradeModal(false)} className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 rounded-xl transition relative z-10 border-2 border-slate-900 hover:border-slate-800 focus:ring-4 focus:ring-slate-200">
+                                Bắt đầu ôn thi ngay
+                            </button>
+                        </div>
+                    </div>
+                )
+                }
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     {/* Skills Quick Access */}
@@ -87,9 +193,16 @@ export default function DashboardPage() {
                             <Calendar className="h-5 w-5 text-blue-600" /> Nhiệm vụ hôm nay
                         </h2>
                         <div className="space-y-4">
-                            <TaskItem title="Viết 1 essay Task 2" time="40 ph" done={false} />
-                            <TaskItem title="Luyện một topic Speaking Part 2" time="15 ph" done={true} />
-                            <TaskItem title="Đọc 1 đoạn văn Reading" time="20 ph" done={false} />
+                            {missions.map(m => (
+                                <TaskItem
+                                    key={m.id}
+                                    title={m.title}
+                                    time={m.time}
+                                    done={completedMissions.includes(m.id)}
+                                    onClick={() => toggleMission(m.id)}
+                                />
+                            ))}
+                            {missions.length === 0 && <p className="text-sm text-slate-500">Đang tải nhiệm vụ...</p>}
                         </div>
                         <div className="mt-8 bg-blue-50 rounded-xl p-4 border border-blue-100">
                             <p className="text-sm text-blue-800 font-medium">💡 Gợi ý thuật toán:</p>
@@ -97,8 +210,8 @@ export default function DashboardPage() {
                         </div>
                     </div>
                 </div>
-            </main>
-        </div>
+            </main >
+        </div >
     );
 }
 
@@ -137,16 +250,24 @@ function SkillCard({ href, icon: Icon, title, desc, color }: any) {
     );
 }
 
-function TaskItem({ title, time, done }: any) {
+function TaskItem({ title, time, done, onClick }: any) {
     return (
-        <div className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 hover:bg-slate-50 transition">
+        <div onClick={onClick} className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 hover:bg-slate-50 transition cursor-pointer">
             <div className={`h-5 w-5 rounded-full border-2 flex items-center justify-center shrink-0 ${done ? 'bg-emerald-500 border-emerald-500' : 'border-slate-300'}`}>
-                {done && <CheckCircle2 className="h-3 w-3 text-white" />}
+                {done && <CheckCircle2 className="h-4 w-4 text-white" />}
             </div>
             <div className="flex-1">
-                <p className={`text-sm font-semibold ${done ? 'text-slate-400 line-through' : 'text-slate-700'}`}>{title}</p>
+                <p className={`text-sm font-semibold transition-all ${done ? 'text-slate-400 line-through' : 'text-slate-700'}`}>{title}</p>
             </div>
-            <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded-md">{time}</span>
+            <span className={`text-xs font-bold px-2 py-1 rounded-md transition-colors ${done ? 'text-slate-300 bg-slate-50' : 'text-slate-500 bg-slate-100'}`}>{time}</span>
         </div>
+    );
+}
+
+export default function DashboardPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div></div>}>
+            <DashboardContent />
+        </Suspense>
     );
 }

@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Headphones, Clock, CheckCircle2, XCircle, ArrowLeft, Volume2, Play, Pause } from "lucide-react";
+import { Headphones, Clock, CheckCircle2, XCircle, ArrowLeft, Volume2, Play, Pause, RotateCcw, RotateCw } from "lucide-react";
 import Link from "next/link";
 
 const LISTENING_SECTIONS = [
@@ -44,8 +44,10 @@ export default function ListeningPractice() {
     const [evaluation, setEvaluation] = useState<any>(null);
     const [isPlaying, setIsPlaying] = useState(false);
     const [audioProgress, setAudioProgress] = useState(0);
+    const [audioDuration, setAudioDuration] = useState(0);
     const [timeLeft, setTimeLeft] = useState(30 * 60);
     const [isTimerRunning, setIsTimerRunning] = useState(false);
+    const audioRef = React.useRef<HTMLAudioElement>(null);
 
     React.useEffect(() => {
         if (!isTimerRunning || timeLeft <= 0) return;
@@ -53,13 +55,37 @@ export default function ListeningPractice() {
         return () => clearInterval(interval);
     }, [isTimerRunning, timeLeft]);
 
-    React.useEffect(() => {
-        if (!isPlaying) return;
-        const interval = setInterval(() => setAudioProgress(prev => prev >= 100 ? 100 : prev + 0.5), 100);
-        return () => clearInterval(interval);
-    }, [isPlaying]);
+    const handlePlayPause = () => {
+        if (audioRef.current) {
+            if (isPlaying) {
+                audioRef.current.pause();
+            } else {
+                audioRef.current.play();
+                if (!isTimerRunning) setIsTimerRunning(true);
+            }
+            setIsPlaying(!isPlaying);
+        }
+    };
 
-    const formatTime = (s: number) => `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
+    const handleTimeUpdate = () => {
+        if (audioRef.current) {
+            setAudioProgress((audioRef.current.currentTime / (audioRef.current.duration || 1)) * 100);
+        }
+    };
+
+    const handleLoadedMetadata = () => {
+        if (audioRef.current) {
+            setAudioDuration(audioRef.current.duration);
+        }
+    };
+
+    const skipAudio = (seconds: number) => {
+        if (audioRef.current) {
+            audioRef.current.currentTime = Math.max(0, Math.min(audioRef.current.currentTime + seconds, audioRef.current.duration || 0));
+        }
+    };
+
+    const formatTime = (s: number) => `${Math.floor(s / 60).toString().padStart(2, '0')}:${Math.floor(s % 60).toString().padStart(2, '0')}`;
 
     const handleAnswer = (qId: number, val: string) => {
         if (isSubmitted || isSubmitting) return;
@@ -72,6 +98,7 @@ export default function ListeningPractice() {
         setIsSubmitting(true);
         setIsTimerRunning(false);
         setIsPlaying(false);
+        if (audioRef.current) audioRef.current.pause();
 
         const formattedAnswers: Record<number, string> = {};
         selectedSection.questions.forEach(q => {
@@ -154,26 +181,54 @@ export default function ListeningPractice() {
 
                 {/* Audio Player */}
                 <div className="bg-white rounded-2xl shadow-lg border border-slate-100 p-6">
+                    <audio
+                        ref={audioRef}
+                        src={(selectedSection as any).audioUrl || "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"}
+                        onTimeUpdate={handleTimeUpdate}
+                        onLoadedMetadata={handleLoadedMetadata}
+                        onEnded={() => setIsPlaying(false)}
+                    />
                     <div className="flex flex-col sm:flex-row items-center gap-6">
-                        <button
-                            onClick={() => { setIsPlaying(!isPlaying); if (!isTimerRunning) setIsTimerRunning(true); }}
-                            className="h-16 w-16 bg-orange-600 hover:bg-orange-700 text-white rounded-full flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-lg flex-shrink-0">
-                            {isPlaying ? <Pause className="h-8 w-8" /> : <Play className="h-8 w-8 ml-1" />}
-                        </button>
+                        <div className="flex items-center gap-4 flex-shrink-0">
+                            <button onClick={() => skipAudio(-5)} className="p-2 text-slate-400 hover:text-orange-600 hover:bg-orange-50 rounded-full transition" title="Lùi 5 giây">
+                                <RotateCcw className="h-6 w-6" />
+                            </button>
+                            <button
+                                onClick={handlePlayPause}
+                                className="h-16 w-16 bg-orange-600 hover:bg-orange-700 text-white rounded-full flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-lg flex-shrink-0">
+                                {isPlaying ? <Pause className="h-8 w-8" /> : <Play className="h-8 w-8 ml-1" />}
+                            </button>
+                            <button onClick={() => skipAudio(5)} className="p-2 text-slate-400 hover:text-orange-600 hover:bg-orange-50 rounded-full transition" title="Tiến 5 giây">
+                                <RotateCw className="h-6 w-6" />
+                            </button>
+                        </div>
                         <div className="flex-1 w-full">
                             <div className="flex items-center justify-between mb-2">
                                 <h3 className="font-bold text-slate-800">{selectedSection.section}: {selectedSection.title}</h3>
                                 <div className="flex items-center gap-2">
                                     <Volume2 className="h-4 w-4 text-slate-400" />
-                                    <input type="range" className="w-20 h-1 bg-slate-200 rounded-lg appearance-none cursor-pointer" defaultValue={80} />
+                                    <input type="range" className="w-20 h-1 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+                                        defaultValue={80}
+                                        onChange={(e) => { if (audioRef.current) audioRef.current.volume = Number(e.target.value) / 100; }}
+                                    />
                                 </div>
                             </div>
-                            <div className="relative h-2 bg-slate-100 rounded-full overflow-hidden">
+                            <div
+                                className="relative h-3 bg-slate-100 rounded-full overflow-hidden cursor-pointer"
+                                onClick={(e) => {
+                                    if (audioRef.current) {
+                                        const bounds = e.currentTarget.getBoundingClientRect();
+                                        const x = e.clientX - bounds.left;
+                                        const newTime = (x / bounds.width) * audioDuration;
+                                        audioRef.current.currentTime = newTime;
+                                    }
+                                }}
+                            >
                                 <div className="absolute h-full bg-gradient-to-r from-orange-500 to-amber-500 rounded-full transition-all duration-100" style={{ width: `${audioProgress}%` }} />
                             </div>
                             <div className="flex justify-between mt-1">
-                                <span className="text-xs text-slate-400 font-mono">{formatTime(Math.floor(audioProgress * 2.7))}</span>
-                                <span className="text-xs text-slate-400 font-mono">04:30</span>
+                                <span className="text-xs text-slate-400 font-mono">{formatTime(audioRef.current?.currentTime || 0)}</span>
+                                <span className="text-xs text-slate-400 font-mono">{formatTime(audioDuration)}</span>
                             </div>
                         </div>
                     </div>

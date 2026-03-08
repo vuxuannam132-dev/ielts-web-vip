@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Users, FileText, Settings, Shield, Edit2, KeyRound, Loader2, Trash2, Banknote, LayoutDashboard, Plus } from "lucide-react";
+import { Users, FileText, Settings, Shield, Edit2, KeyRound, Loader2, Trash2, Banknote, LayoutDashboard, Plus, Flame } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 
@@ -81,25 +81,85 @@ export default function AdminDashboard() {
 // ───────────────────────────────────────────────
 
 function WelcomeView() {
+    const [stats, setStats] = useState<{ totalUsers: number, vipUsers: number, totalSubmissions: number, activeUsersCount: number, topUsers?: any[] }>({ totalUsers: 0, vipUsers: 0, totalSubmissions: 0, activeUsersCount: 0 });
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        fetch('/api/admin/analytics').then(res => res.json()).then(data => {
+            if (!data.error) setStats(data);
+            setLoading(false);
+        });
+    }, []);
+
     return (
         <div className="space-y-6">
             <h1 className="text-3xl font-bold text-slate-900">Dashboard</h1>
             <p className="text-slate-500">Chào mừng bạn trở lại hệ thống quản trị IELTS Mastery.</p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
-                {/* Stats cards placeholder */}
-                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
-                    <div className="h-14 w-14 rounded-xl bg-blue-100 flex items-center justify-center"><Users className="h-6 w-6 text-blue-600" /></div>
-                    <div><p className="text-3xl font-bold">50+</p><p className="text-sm text-slate-500">Người dùng</p></div>
+            {loading ? <p className="text-slate-500">Đang tải dữ liệu...</p> : (
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-6">
+                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+                        <div className="h-14 w-14 rounded-xl bg-blue-100 flex items-center justify-center"><Users className="h-6 w-6 text-blue-600" /></div>
+                        <div><p className="text-3xl font-bold">{stats.totalUsers}</p><p className="text-sm text-slate-500">Tổng User</p></div>
+                    </div>
+                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+                        <div className="h-14 w-14 rounded-xl bg-emerald-100 flex items-center justify-center"><FileText className="h-6 w-6 text-emerald-600" /></div>
+                        <div><p className="text-3xl font-bold">{stats.totalSubmissions}</p><p className="text-sm text-slate-500">Nộp bài</p></div>
+                    </div>
+                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+                        <div className="h-14 w-14 rounded-xl bg-amber-100 flex items-center justify-center"><Banknote className="h-6 w-6 text-amber-600" /></div>
+                        <div><p className="text-3xl font-bold">{stats.vipUsers}</p><p className="text-sm text-slate-500">Thành viên VIP</p></div>
+                    </div>
+                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+                        <div className="h-14 w-14 rounded-xl bg-indigo-100 flex items-center justify-center"><LayoutDashboard className="h-6 w-6 text-indigo-600" /></div>
+                        <div><p className="text-3xl font-bold">{stats.activeUsersCount}</p><p className="text-sm text-slate-500">Active (7 ngày)</p></div>
+                    </div>
                 </div>
-                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
-                    <div className="h-14 w-14 rounded-xl bg-emerald-100 flex items-center justify-center"><FileText className="h-6 w-6 text-emerald-600" /></div>
-                    <div><p className="text-3xl font-bold">120</p><p className="text-sm text-slate-500">Nộp bài</p></div>
+            )}
+
+            {/* Top Users Leaderboard */}
+            {!loading && stats.topUsers && stats.topUsers.length > 0 && (
+                <div className="mt-8 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div className="p-6 border-b border-slate-100">
+                        <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                            <Flame className="h-5 w-5 text-orange-500" /> Bảng Xếp Hạng Chăm Chỉ (Top 5)
+                        </h2>
+                    </div>
+                    <table className="w-full text-left text-sm">
+                        <thead className="bg-slate-50 text-slate-600">
+                            <tr>
+                                <th className="px-6 py-4 font-semibold">Người dùng</th>
+                                <th className="px-6 py-4 font-semibold text-center">Gói</th>
+                                <th className="px-6 py-4 font-semibold text-right">Tổng Bài Giải</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {stats.topUsers.map((user: any, idx: number) => (
+                                <tr key={user.id} className="hover:bg-slate-50/50">
+                                    <td className="px-6 py-4">
+                                        <div className="flex items-center gap-3">
+                                            <div className="h-8 w-8 rounded-full bg-blue-100 text-blue-700 font-bold flex items-center justify-center shrink-0">
+                                                {idx + 1}
+                                            </div>
+                                            <div>
+                                                <p className="font-bold text-slate-900">{user.name || 'Học viên'}</p>
+                                                <p className="text-xs text-slate-500">{user.email}</p>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4 text-center">
+                                        <span className={`px-2 py-1 rounded-md text-xs font-bold ${user.tier === 'FREE' ? 'bg-slate-100 text-slate-600' : 'bg-amber-100 text-amber-700'}`}>
+                                            {user.tier}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-4 text-right font-black text-emerald-600 text-lg">
+                                        {user.lifetimePracticeCount}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
                 </div>
-                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
-                    <div className="h-14 w-14 rounded-xl bg-amber-100 flex items-center justify-center"><Banknote className="h-6 w-6 text-amber-600" /></div>
-                    <div><p className="text-3xl font-bold">15</p><p className="text-sm text-slate-500">Thành viên VIP</p></div>
-                </div>
-            </div>
+            )}
         </div>
     );
 }
@@ -335,22 +395,74 @@ function PaymentConfig() {
 }
 
 function SystemSettings() {
+    const [configs, setConfigs] = useState<Record<string, string>>({});
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        fetch('/api/admin/config').then(res => res.json()).then(data => {
+            if (!data.error) setConfigs(data);
+            setLoading(false);
+        });
+    }, []);
+
+    const handleSave = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const payload = Object.keys(configs).map(key => ({ key, value: configs[key] }));
+        await fetch('/api/admin/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ configs: payload })
+        });
+        alert('Đã lưu cấu hình!');
+    };
+
+    if (loading) return <p className="text-slate-500 mt-10 text-center">Đang tải cấu hình...</p>;
+
     return (
         <div className="space-y-6 max-w-3xl">
-            <h2 className="text-2xl font-bold">Cài đặt chung</h2>
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 space-y-5">
+            <h2 className="text-2xl font-bold">Cài đặt chung & Thanh toán</h2>
+            <form onSubmit={handleSave} className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 space-y-6">
                 <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Tên Website</label>
-                    <input type="text" defaultValue="IELTS Mastery" className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm outline-none" />
+                    <h3 className="text-lg font-bold mb-4 text-blue-600">Thông tin Ngân hàng (Để User chuyển khoản)</h3>
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-semibold mb-1 text-slate-700">Tên Ngân hàng (VD: Vietcombank)</label>
+                            <input value={configs.bankName || ''} onChange={e => setConfigs({ ...configs, bankName: e.target.value })} className="w-full px-4 py-2 border rounded-lg outline-none" placeholder="Ngân hàng TMCP..." />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-semibold mb-1 text-slate-700">Số Tài Khoản</label>
+                            <input value={configs.bankAccount || ''} onChange={e => setConfigs({ ...configs, bankAccount: e.target.value })} className="w-full px-4 py-2 border rounded-lg outline-none" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-semibold mb-1 text-slate-700">Chủ Tài Khoản</label>
+                            <input value={configs.accountHolder || ''} onChange={e => setConfigs({ ...configs, accountHolder: e.target.value })} className="w-full px-4 py-2 border rounded-lg outline-none" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-semibold mb-1 text-slate-700">Link Ảnh Mã QR Code</label>
+                            <input placeholder="https://..." value={configs.bankQRUrl || ''} onChange={e => setConfigs({ ...configs, bankQRUrl: e.target.value })} className="w-full px-4 py-2 border rounded-lg outline-none" />
+                            <p className="text-xs text-slate-500 mt-1">Gợi ý: Up ảnh QR lên Imgur hoặc các trang lưu ảnh, sau đó dán link trực tiếp có đuôi .png/.jpg vào đây.</p>
+                        </div>
+                    </div>
                 </div>
-                <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Link Group Cộng Đồng (Zalo/FB)</label>
-                    <input type="text" placeholder="https://zalo.me/g/..." className="w-full px-4 py-2 border border-slate-200 rounded-lg text-sm outline-none" />
+
+                <div className="pt-6 border-t border-slate-200">
+                    <h3 className="text-lg font-bold mb-4">Các thông tin khác</h3>
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-semibold mb-1 text-slate-700">Tên Website</label>
+                            <input value={configs.siteName || 'IELTS Mastery'} onChange={e => setConfigs({ ...configs, siteName: e.target.value })} className="w-full px-4 py-2 border rounded-lg outline-none" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-semibold mb-1 text-slate-700">Link Group Cộng Đồng (Zalo/FB)</label>
+                            <input value={configs.communityLink || ''} onChange={e => setConfigs({ ...configs, communityLink: e.target.value })} className="w-full px-4 py-2 border rounded-lg outline-none" placeholder="https://zalo.me/g/..." />
+                        </div>
+                    </div>
                 </div>
-                <button className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-semibold shadow-sm hover:bg-blue-700 mt-4">
-                    Lưu thông tin
+
+                <button type="submit" className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-semibold shadow-sm hover:bg-blue-700 mt-4">
+                    Lưu cấu hình
                 </button>
-            </div>
+            </form>
         </div>
     );
 }

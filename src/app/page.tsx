@@ -1,8 +1,12 @@
 import Link from 'next/link';
 import { BrainCircuit, Star, BarChart3, Clock, Users, Shield, ArrowRight, CheckCircle2, Mic, PenTool, BookOpen, Headphones } from 'lucide-react';
 import { prisma } from '@/lib/prisma';
+import { auth } from '@/auth';
 
 export default async function Home() {
+  const session = await auth();
+  const isLoggedIn = !!session?.user;
+
   const packages = await prisma.package.findMany({
     where: { isActive: true },
     orderBy: { price: 'asc' }
@@ -156,7 +160,7 @@ export default async function Home() {
                       </li>
                     ))}
                   </ul>
-                  <Link href="/register" className={btnClass}>
+                  <Link href={isLoggedIn ? `/checkout?pkg=${pkg.code}` : `/register?pkg=${pkg.code}`} className={btnClass}>
                     {pkg.price === 0 ? 'Bắt đầu ngay' : `Đăng ký ${pkg.name}`}
                   </Link>
                 </div>

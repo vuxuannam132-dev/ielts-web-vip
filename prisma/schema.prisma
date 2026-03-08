@@ -35,6 +35,13 @@ model User {
   lastLoginAt   DateTime?
   lastLoginIp   String?
 
+  // Gamification & Stats
+  targetBand            Float?
+  lifetimePracticeCount Int      @default(0)
+  currentStreak         Int      @default(0)
+  highestStreak         Int      @default(0)
+  lastPracticeDate      DateTime?
+
   submissions   Submission[]
 
   createdAt     DateTime @default(now())
