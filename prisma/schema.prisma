@@ -19,21 +19,29 @@ model User {
   id            String   @id @default(cuid())
   name          String?
   email         String   @unique
-  password      String   // bcrypt-hashed, required for credentials auth
-  role          String   @default("USER")      // USER | ADMIN
-  tier          String   @default("FREE")      // FREE | PRO | PREMIUM
-  tierExpiresAt DateTime?                       // null = lifetime / FREE
+  password      String
+
+  // Role: USER | ADMIN | TEACHER
+  role          String   @default("USER")
+  // Tier: FREE | PRO | PREMIUM | EDU
+  tier          String   @default("FREE")
+  tierExpiresAt DateTime?
 
   // AI Budget tracking
   tokenUsage    Int      @default(0)
   aiUsedCount   Int      @default(0)
-  tokenResetAt  DateTime @default(now())        // reset monthly
+  tokenResetAt  DateTime @default(now())
 
   // Security
   loginAttempts Int      @default(0)
   lockedUntil   DateTime?
   lastLoginAt   DateTime?
   lastLoginIp   String?
+
+  // Onboarding
+  onboardingDone  Boolean  @default(false)
+  currentBand     Float?
+  weakestSkill    String?  // LISTENING | READING | WRITING | SPEAKING
 
   // Gamification & Stats
   targetBand            Float?
@@ -42,7 +50,13 @@ model User {
   highestStreak         Int      @default(0)
   lastPracticeDate      DateTime?
 
+  // Band Estimation
+  estimatedBand         Float?   // calculated from first 4 skill submissions
+  bandReminderShown     Boolean  @default(false)
+
   submissions   Submission[]
+  classesAsTeacher Class[]  @relation("TeacherClasses")
+  classMembers  ClassMember[]
 
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -57,12 +71,16 @@ model PracticeSet {
   skill       String    // LISTENING | READING | WRITING | SPEAKING
   title       String
   description String?
-  difficulty  String    @default("Medium")     // Easy | Medium | Hard
+  difficulty  String    @default("Medium")
   isDaily     Boolean   @default(false)
   activeDate  DateTime?
-  content     String?   // JSON: passage, audio URL, prompt, questions etc.
+  content     String?   // JSON structured content
   isAIGenerated Boolean @default(false)
   isActive    Boolean   @default(true)
+
+  // Class-specific content (null = public)
+  classId     String?
+  class       Class?   @relation(fields: [classId], references: [id])
 
   submissions  Submission[]
 
@@ -77,15 +95,47 @@ model Submission {
   practiceSetId String?
   practiceSet   PracticeSet? @relation(fields: [practiceSetId], references: [id])
 
-  skill         String   // To allow submissions without a set (custom)
-  answers       String   // JSON: user answers or essay text
+  skill         String
+  answers       String   // JSON
   bandScore     Float?
-  feedback      String?  // JSON: detailed AI feedback object
-  transcript    String?  // For speaking: Whisper transcript
-  timeTaken     Int?     // seconds
+  feedback      String?  // JSON
+  transcript    String?
+  timeTaken     Int?
 
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+}
+
+// ───────────────────────────────────────────────
+// Teacher System & Classes
+// ───────────────────────────────────────────────
+
+model Class {
+  id          String @id @default(cuid())
+  name        String
+  description String?
+  teacherId   String
+  teacher     User   @relation("TeacherClasses", fields: [teacherId], references: [id], onDelete: Cascade)
+  inviteCode  String @unique @default(cuid())
+  isActive    Boolean @default(true)
+
+  members     ClassMember[]
+  practiceSets PracticeSet[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ClassMember {
+  id        String @id @default(cuid())
+  classId   String
+  class     Class  @relation(fields: [classId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status    String @default("PENDING") // PENDING | APPROVED | REJECTED
+  joinedAt  DateTime @default(now())
+
+  @@unique([classId, userId])
 }
 
 // ───────────────────────────────────────────────
@@ -100,14 +150,27 @@ model SystemConfig {
 
 model Package {
   id          String   @id @default(cuid())
-  code        String   @unique // e.g., FREE, PRO, PREMIUM
+  code        String   @unique // FREE | PRO | PREMIUM | EDU
   name        String
   price       Int
-  durationDays Int?    // null = lifetime
+  durationDays Int?
   description String
-  benefits    String   // JSON stringified array of benefits
+  benefits    String   // JSON array
   isActive    Boolean  @default(true)
+  requiresManualApproval Boolean @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
 
+// Payment transactions
+model Transaction {
+  id            String @id @default(cuid())
+  userId        String
+  packageCode   String
+  amount        Int
+  transferContent String
+  status        String @default("PENDING") // PENDING | SUCCESS | FAILED
+  cassoId       String? // Casso transaction reference
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}

@@ -1,18 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { auth } from '@/auth';
+import { getSessionFromRequest } from '@/lib/session';
 
 export async function POST(request: NextRequest) {
     try {
-        const session = await auth();
-        if (!session?.user?.id) {
+        const session = await getSessionFromRequest(request);
+        if (!session || session.role !== 'ADMIN') {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
-
-        // Check admin role
-        const user = await prisma.user.findUnique({ where: { id: session.user.id } });
-        if (user?.role !== 'ADMIN') {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 
         const body = await request.json();
@@ -22,7 +16,6 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Invalid data' }, { status: 400 });
         }
 
-        // Upsert each config
         for (const config of configs) {
             await prisma.systemConfig.upsert({
                 where: { key: config.key },
@@ -38,16 +31,11 @@ export async function POST(request: NextRequest) {
     }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
     try {
-        const session = await auth();
-        if (!session?.user?.id) {
+        const session = await getSessionFromRequest(request);
+        if (!session || session.role !== 'ADMIN') {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
-
-        const user = await prisma.user.findUnique({ where: { id: session.user.id } });
-        if (user?.role !== 'ADMIN') {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 
         const configs = await prisma.systemConfig.findMany();

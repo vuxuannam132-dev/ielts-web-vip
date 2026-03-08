@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/auth";
+import { getSessionFromRequest } from "@/lib/session";
 
 // GET all users
-export async function GET() {
+export async function GET(req: NextRequest) {
     try {
-        const session = await auth();
-        // Check if caller is admin
-        if (!session?.user || (session.user as any).role !== "ADMIN") {
+        const session = await getSessionFromRequest(req);
+        if (!session || session.role !== "ADMIN") {
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
@@ -18,7 +17,12 @@ export async function GET() {
                 email: true,
                 role: true,
                 tier: true,
+                tierExpiresAt: true,
+                currentStreak: true,
+                lifetimePracticeCount: true,
+                estimatedBand: true,
                 createdAt: true,
+                lastLoginAt: true,
                 _count: { select: { submissions: true } }
             },
             orderBy: { createdAt: "desc" }
@@ -34,20 +38,21 @@ export async function GET() {
 // UPDATE user (tier, role)
 export async function PATCH(req: NextRequest) {
     try {
-        const session = await auth();
-        if (!session?.user || (session.user as any).role !== "ADMIN") {
+        const session = await getSessionFromRequest(req);
+        if (!session || session.role !== "ADMIN") {
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
-        const { userId, role, tier } = await req.json();
+        const { userId, role, tier, tierExpiresAt } = await req.json();
 
         if (!userId) {
             return NextResponse.json({ error: "Missing userId" }, { status: 400 });
         }
 
         const data: any = {};
-        if (role) data.role = role === "ADMIN" ? "ADMIN" : "USER";
-        if (tier) data.tier = ["FREE", "PRO", "PREMIUM"].includes(tier) ? tier : "FREE";
+        if (role) data.role = ["ADMIN", "USER", "TEACHER"].includes(role) ? role : "USER";
+        if (tier) data.tier = ["FREE", "PRO", "PREMIUM", "EDU"].includes(tier) ? tier : "FREE";
+        if (tierExpiresAt !== undefined) data.tierExpiresAt = tierExpiresAt ? new Date(tierExpiresAt) : null;
 
         const updated = await prisma.user.update({
             where: { id: userId },
@@ -62,31 +67,26 @@ export async function PATCH(req: NextRequest) {
     }
 }
 
-// DELETE (Ban) user
+// DELETE user
 export async function DELETE(req: NextRequest) {
     try {
-        const session = await auth();
-        // Must be admin
-        if (!session?.user || (session.user as any).role !== "ADMIN") {
+        const session = await getSessionFromRequest(req);
+        if (!session || session.role !== "ADMIN") {
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
         const { searchParams } = new URL(req.url);
-        const userId = searchParams.get('userId');
+        const userId = searchParams.get("userId");
 
         if (!userId) {
             return NextResponse.json({ error: "Missing userId" }, { status: 400 });
         }
 
-        // Prevent admin from deleting themselves
-        if (userId === session.user.id) {
+        if (userId === session.id) {
             return NextResponse.json({ error: "Cannot delete yourself" }, { status: 400 });
         }
 
-        await prisma.user.delete({
-            where: { id: userId }
-        });
-
+        await prisma.user.delete({ where: { id: userId } });
         return NextResponse.json({ success: true });
     } catch (error) {
         console.error("[Admin Users DELETE Error]:", error);

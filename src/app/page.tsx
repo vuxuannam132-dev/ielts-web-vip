@@ -43,8 +43,8 @@ export default async function Home() {
             Trải nghiệm không gian học chuẩn quốc tế với AI mô phỏng cựu giám khảo chấm điểm Writing & Speaking chi tiết theo 4 tiêu chí.
           </p>
           <div className="mt-10 flex flex-col sm:flex-row justify-center gap-4">
-            <Link href="/register" className="px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-2xl hover:shadow-xl hover:shadow-blue-600/30 transition-all hover:-translate-y-1 flex items-center justify-center gap-2 text-lg">
-              Bắt đầu luyện đê:) <ArrowRight className="h-5 w-5" />
+            <Link href={isLoggedIn ? "/dashboard" : "/register"} className="px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-2xl hover:shadow-xl hover:shadow-blue-600/30 transition-all hover:-translate-y-1 flex items-center justify-center gap-2 text-lg">
+              {isLoggedIn ? "Vào Dashboard" : "Bắt đầu luyện đề :)"} <ArrowRight className="h-5 w-5" />
             </Link>
             <Link href="#features" className="px-8 py-4 bg-white text-slate-700 font-bold rounded-2xl border border-slate-200 hover:border-slate-300 hover:bg-slate-50 transition-all flex items-center justify-center gap-2 text-lg">
               Tìm hiểu thêm

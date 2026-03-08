@@ -1,21 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { auth } from '@/auth';
+import { getSessionFromRequest } from '@/lib/session';
 
 export async function POST(request: NextRequest) {
     try {
-        const session = await auth();
-        if (!session?.user?.id) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
-
-        const user = await prisma.user.findUnique({ where: { id: session.user.id } });
-        if (user?.role !== 'ADMIN') {
+        const session = await getSessionFromRequest(request);
+        if (!session || !["ADMIN", "TEACHER"].includes(session.role)) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 
         const body = await request.json();
-        const { skill, title, section, difficulty, content, questions } = body;
+        const { skill, title, section, difficulty, contentJSON } = body;
 
         if (!skill || !title) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -26,12 +21,9 @@ export async function POST(request: NextRequest) {
                 skill: skill.toUpperCase(),
                 title,
                 description: section || `${skill} Practice`,
-                content: JSON.stringify({
-                    section: section || `${skill} Practice`,
-                    difficulty: difficulty || 'Medium',
-                    passage: content || '',
-                    questions: questions || [],
-                }),
+                difficulty: difficulty || 'Medium',
+                content: JSON.stringify(contentJSON || {}),
+                isActive: true,
             },
         });
 
@@ -42,21 +34,43 @@ export async function POST(request: NextRequest) {
     }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
     try {
-        const session = await auth();
-        if (!session?.user?.id) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        const session = await getSessionFromRequest(request);
+        if (!session || !["ADMIN", "TEACHER"].includes(session.role)) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 
+        const { searchParams } = new URL(request.url);
+        const skill = searchParams.get('skill');
+
         const sets = await prisma.practiceSet.findMany({
+            where: skill ? { skill: skill.toUpperCase() } : undefined,
             orderBy: { createdAt: 'desc' },
-            take: 50,
+            take: 100,
         });
 
         return NextResponse.json(sets);
     } catch (error) {
         console.error('Practice fetch error:', error);
         return NextResponse.json({ error: 'Failed to fetch practice sets' }, { status: 500 });
+    }
+}
+
+export async function DELETE(request: NextRequest) {
+    try {
+        const session = await getSessionFromRequest(request);
+        if (!session || session.role !== 'ADMIN') {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
+
+        const { searchParams } = new URL(request.url);
+        const id = searchParams.get('id');
+        if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
+
+        await prisma.practiceSet.delete({ where: { id } });
+        return NextResponse.json({ success: true });
+    } catch (error) {
+        return NextResponse.json({ error: 'Failed to delete practice set' }, { status: 500 });
     }
 }

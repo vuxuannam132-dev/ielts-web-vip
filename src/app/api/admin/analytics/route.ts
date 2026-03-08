@@ -1,16 +1,16 @@
-import { NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { NextRequest, NextResponse } from "next/server";
+import { getSessionFromRequest } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 
-export async function GET(req: Request) {
-    const session = await auth();
-    if (!session || (session.user as any)?.role !== "ADMIN") {
+export async function GET(req: NextRequest) {
+    const session = await getSessionFromRequest(req);
+    if (!session || session.role !== "ADMIN") {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     try {
         const totalUsers = await prisma.user.count();
-        const vipUsers = await prisma.user.count({ where: { tier: { in: ['PRO', 'PREMIUM'] } } });
+        const vipUsers = await prisma.user.count({ where: { tier: { in: ['PRO', 'PREMIUM', 'EDU'] } } });
         const totalSubmissions = await prisma.submission.count();
 
         const sevenDaysAgo = new Date();
@@ -20,7 +20,15 @@ export async function GET(req: Request) {
         const topUsers = await prisma.user.findMany({
             orderBy: { lifetimePracticeCount: 'desc' },
             take: 5,
-            select: { id: true, name: true, email: true, lifetimePracticeCount: true, tier: true }
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                lifetimePracticeCount: true,
+                tier: true,
+                estimatedBand: true,
+                currentStreak: true,
+            }
         });
 
         return NextResponse.json({ totalUsers, vipUsers, totalSubmissions, activeUsersCount, topUsers });

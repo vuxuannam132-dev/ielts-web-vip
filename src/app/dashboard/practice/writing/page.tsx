@@ -2,29 +2,15 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { PenTool, Clock, FileText, Send, Loader2, ChevronDown, ChevronUp, Star, ArrowLeft } from "lucide-react";
+import { PenTool, Clock, FileText, Send, Loader2, ChevronDown, ChevronUp, Star, ArrowLeft, BookOpen } from "lucide-react";
 import Link from "next/link";
 
-const WRITING_PROMPTS = [
-    {
-        id: 1, type: "Task 2", topic: "Technology & Society",
-        title: "Impact of Artificial Intelligence on Employment",
-        prompt: "Some people believe that the development of artificial intelligence will lead to widespread unemployment. Others argue that AI will create more jobs than it displaces. Discuss both views and give your own opinion.",
-        tip: "Write at least 250 words. Structure: Introduction → Body 1 (View A) → Body 2 (View B) → Your Opinion → Conclusion."
-    },
-    {
-        id: 2, type: "Task 2", topic: "Education",
-        title: "Online vs Traditional Education",
-        prompt: "With the rise of online learning platforms, some people think traditional classroom education will become obsolete. To what extent do you agree or disagree?",
-        tip: "Write at least 250 words. Clearly state your position in the introduction."
-    },
-    {
-        id: 3, type: "Task 1", topic: "Report Writing",
-        title: "Bar Chart: Energy Consumption",
-        prompt: "The bar chart below shows the energy consumption in four countries from 2000 to 2020. Summarize the information by selecting and reporting the main features, and make comparisons where relevant.",
-        tip: "Write at least 150 words. Describe trends, compare data points, and highlight key features."
-    }
-];
+interface PracticeSet {
+    id: string;
+    title: string;
+    description?: string;
+    content: string;
+}
 
 interface AIFeedback {
     bandScore: number;
@@ -37,287 +23,187 @@ interface AIFeedback {
 }
 
 export default function WritingPractice() {
-    const [selectedPrompt, setSelectedPrompt] = useState(WRITING_PROMPTS[0]);
+    const [sets, setSets] = useState<PracticeSet[]>([]);
+    const [selected, setSelected] = useState<PracticeSet | null>(null);
+    const [parsed, setParsed] = useState<any>(null);
+    const [loading, setLoading] = useState(true);
+    const [wordCount, setWordCount] = useState(0);
     const [essay, setEssay] = useState("");
-    const [timeLeft, setTimeLeft] = useState(40 * 60);
-    const [isTimerRunning, setIsTimerRunning] = useState(false);
-    const [showPromptList, setShowPromptList] = useState(false);
+    const [timeLeft, setTimeLeft] = useState(60 * 60);
+    const [timerRunning, setTimerRunning] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [feedback, setFeedback] = useState<AIFeedback | null>(null);
-
-    const wordCount = essay.trim() ? essay.trim().split(/\s+/).length : 0;
+    const [showFeedback, setShowFeedback] = useState(false);
 
     useEffect(() => {
-        if (!isTimerRunning || timeLeft <= 0) return;
-        const interval = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
-        return () => clearInterval(interval);
-    }, [isTimerRunning, timeLeft]);
-
-    const formatTime = useCallback((s: number) => {
-        const m = Math.floor(s / 60);
-        const sec = s % 60;
-        return `${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+        fetch("/api/practice?skill=writing")
+            .then(r => r.json())
+            .then(data => { if (Array.isArray(data) && data.length) { setSets(data); setSelected(data[0]); } setLoading(false); })
+            .catch(() => setLoading(false));
     }, []);
 
-    const handleStartWriting = () => {
-        setIsTimerRunning(true);
-        setFeedback(null);
+    useEffect(() => {
+        if (!selected) return;
+        try { setParsed(JSON.parse(selected.content || "{}")); } catch { setParsed({}); }
+        setEssay(""); setFeedback(null); setWordCount(0); setShowFeedback(false);
+    }, [selected]);
+
+    useEffect(() => {
+        if (!timerRunning || timeLeft <= 0) return;
+        const t = setInterval(() => setTimeLeft(p => p - 1), 1000);
+        return () => clearInterval(t);
+    }, [timerRunning, timeLeft]);
+
+    const handleEssayChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+        const text = e.target.value;
+        setEssay(text);
+        setWordCount(text.trim() ? text.trim().split(/\s+/).length : 0);
+        if (!timerRunning && text.length > 0) setTimerRunning(true);
+    }, [timerRunning]);
+
+    const formatTime = (s: number) => `${Math.floor(s / 60).toString().padStart(2, "0")}:${(s % 60).toString().padStart(2, "0")}`;
+
+    const getMinWords = () => {
+        const type = parsed?.task1 ? "Task 1" : "Task 2";
+        return type === "Task 1" ? 150 : 250;
     };
 
     const handleSubmit = async () => {
-        if (wordCount < 50) return alert("Bài viết của bạn quá ngắn. Vui lòng viết ít nhất 50 từ.");
-        setIsSubmitting(true);
-        setIsTimerRunning(false);
-
+        if (!essay.trim()) return;
+        setIsSubmitting(true); setTimerRunning(false);
         try {
             const res = await fetch("/api/ai/writing", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    taskNumber: selectedPrompt.type === 'Task 1' ? 1 : 2,
-                    prompt: selectedPrompt.prompt,
-                    userText: essay,
-                    practiceSetId: null
-                })
+                body: JSON.stringify({ practiceSetId: selected?.id, prompt: parsed?.task2?.prompt || parsed?.task1?.prompt || parsed?.prompt || "", essay })
             });
             const data = await res.json();
-            if (res.ok) {
-                setFeedback(data.evaluation);
-            } else {
-                alert("Lỗi: " + data.error);
-                setIsTimerRunning(true);
-            }
-        } catch (error) {
-            alert("Lỗi kết nối khi chấm điểm");
-            setIsTimerRunning(true);
-        } finally {
-            setIsSubmitting(false);
-        }
+            if (data.success || data.evaluation) {
+                setFeedback(data.evaluation || data.feedback);
+                setShowFeedback(true);
+            } else { alert("Lỗi: " + data.error); }
+        } catch { alert("Lỗi hệ thống."); }
+        finally { setIsSubmitting(false); }
     };
 
-    const getScoreColor = (score: number) => {
-        if (score >= 7) return "text-emerald-600 bg-emerald-50 border-emerald-200";
-        if (score >= 6) return "text-blue-600 bg-blue-50 border-blue-200";
-        if (score >= 5) return "text-amber-600 bg-amber-50 border-amber-200";
-        return "text-red-600 bg-red-50 border-red-200";
-    };
+    if (loading) return <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-500 border-t-transparent" /></div>;
+
+    if (!sets.length || !selected) {
+        return (
+            <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center">
+                <div className="text-center max-w-md mx-4">
+                    <div className="w-20 h-20 bg-purple-100 rounded-2xl flex items-center justify-center mx-auto mb-6"><PenTool className="h-10 w-10 text-purple-500" /></div>
+                    <h2 className="text-2xl font-bold text-slate-900 mb-3">Chưa có bài Writing</h2>
+                    <p className="text-slate-500 mb-6">Admin chưa đăng bài tập nào. Quay lại sau nhé!</p>
+                    <Link href="/dashboard"><Button>← Về Dashboard</Button></Link>
+                </div>
+            </div>
+        );
+    }
+
+    const taskType = parsed?.task1 ? "Task 1" : "Task 2";
+    const prompt = parsed?.task2?.prompt || parsed?.task1?.prompt || parsed?.prompt || "Không có đề bài.";
+    const imageUrl = parsed?.task1?.imageUrl;
+    const tip = parsed?.task2?.tip || parsed?.task1?.tip || `Viết ít nhất ${getMinWords()} từ.`;
+    const minWords = getMinWords();
 
     return (
-        <div className="min-h-[calc(100vh-4rem)] bg-gradient-to-b from-slate-50 to-indigo-50/20">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-
-                {/* Header */}
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+        <div className="min-h-[calc(100vh-4rem)] bg-gradient-to-b from-slate-50 to-purple-50/20">
+            <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+                <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <Link href="/dashboard" className="p-2 hover:bg-slate-200 rounded-lg transition">
-                            <ArrowLeft className="h-5 w-5 text-slate-600" />
-                        </Link>
-                        <div className="h-10 w-10 rounded-xl bg-indigo-100 flex items-center justify-center">
-                            <PenTool className="h-5 w-5 text-indigo-600" />
-                        </div>
+                        <Link href="/dashboard" className="p-2 hover:bg-slate-100 rounded-lg"><ArrowLeft className="h-5 w-5 text-slate-600" /></Link>
+                        <div className="h-10 w-10 rounded-xl bg-purple-100 flex items-center justify-center"><PenTool className="h-5 w-5 text-purple-600" /></div>
                         <div>
                             <h1 className="text-xl font-bold text-slate-900">Writing Practice</h1>
-                            <p className="text-sm text-slate-500">Luyện viết IELTS với AI chấm điểm</p>
+                            <p className="text-sm text-slate-500">Viết bài IELTS với AI chấm điểm</p>
                         </div>
                     </div>
-
-                    <div className="flex items-center gap-3">
-                        <div className={`flex items-center gap-2 px-4 py-2 rounded-lg border font-mono text-lg ${timeLeft < 300 && isTimerRunning ? 'bg-red-50 border-red-200 text-red-600' : 'bg-white border-slate-200 text-slate-700'}`}>
-                            <Clock className="h-4 w-4" />
-                            <span className="font-bold">{formatTime(timeLeft)}</span>
-                        </div>
-                        <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white border border-slate-200">
-                            <FileText className="h-4 w-4 text-slate-500" />
-                            <span className={`font-bold ${wordCount >= 250 ? 'text-emerald-600' : wordCount >= 150 ? 'text-blue-600' : 'text-slate-600'}`}>{wordCount}</span>
-                            <span className="text-slate-400 text-sm">từ</span>
-                        </div>
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-sm font-mono">
+                        <Clock className="h-4 w-4 text-slate-500" />
+                        <span className={`font-bold ${timeLeft < 300 ? "text-red-600" : ""}`}>{formatTime(timeLeft)}</span>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+                {/* Set selector */}
+                <div className="flex gap-2 overflow-x-auto pb-1">
+                    {sets.map(s => (
+                        <button key={s.id} onClick={() => setSelected(s)}
+                            className={`px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition ${selected?.id === s.id ? "bg-purple-600 text-white shadow-md" : "bg-white text-slate-600 border border-slate-200 hover:bg-purple-50"}`}>
+                            {s.title}
+                        </button>
+                    ))}
+                </div>
 
-                    {/* Left: Prompt + Editor */}
-                    <div className="lg:col-span-3 space-y-4">
-
-                        {/* Prompt Selector */}
-                        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                            <button
-                                onClick={() => setShowPromptList(!showPromptList)}
-                                className="w-full flex items-center justify-between p-4 hover:bg-slate-50 transition"
-                            >
-                                <div className="flex items-center gap-3">
-                                    <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded">{selectedPrompt.type}</span>
-                                    <span className="text-xs text-slate-400">{selectedPrompt.topic}</span>
-                                </div>
-                                {showPromptList ? <ChevronUp className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
-                            </button>
-
-                            {showPromptList && (
-                                <div className="border-t border-slate-100 divide-y divide-slate-100">
-                                    {WRITING_PROMPTS.map(p => (
-                                        <button key={p.id} onClick={() => { setSelectedPrompt(p); setShowPromptList(false); }}
-                                            className={`w-full text-left p-4 hover:bg-blue-50/50 transition ${selectedPrompt.id === p.id ? 'bg-blue-50' : ''}`}>
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <span className="text-xs font-bold text-indigo-600">{p.type}</span>
-                                                <span className="text-xs text-slate-400">{p.topic}</span>
-                                            </div>
-                                            <p className="text-sm font-medium text-slate-800">{p.title}</p>
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Prompt Display */}
-                        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-                            <h2 className="text-lg font-bold text-slate-900 mb-3">{selectedPrompt.title}</h2>
-                            <p className="text-slate-700 leading-relaxed mb-4">{selectedPrompt.prompt}</p>
-                            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                                <p className="text-sm text-amber-700"><strong>💡 Tip:</strong> {selectedPrompt.tip}</p>
+                <div className="grid lg:grid-cols-5 gap-6">
+                    {/* Prompt */}
+                    <div className="lg:col-span-2 space-y-4">
+                        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+                            <div className="flex items-center gap-2 mb-3">
+                                <span className="text-xs font-bold text-purple-700 bg-purple-100 px-2 py-0.5 rounded">{taskType}</span>
+                                <span className="text-xs text-slate-500">{selected.description}</span>
                             </div>
-                        </div>
-
-                        {/* Text Editor */}
-                        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                            {!isTimerRunning && !feedback ? (
-                                <div className="p-12 text-center">
-                                    <PenTool className="h-12 w-12 text-indigo-300 mx-auto mb-4" />
-                                    <h3 className="text-lg font-semibold text-slate-700 mb-2">Sẵn sàng viết?</h3>
-                                    <p className="text-sm text-slate-500 mb-6">Bấm nút bên dưới để bắt đầu đồng hồ và viết bài.</p>
-                                    <Button onClick={handleStartWriting} className="bg-indigo-600 hover:bg-indigo-700 px-8 py-3">
-                                        Bắt đầu viết
-                                    </Button>
-                                </div>
-                            ) : (
-                                <>
-                                    <textarea
-                                        value={essay}
-                                        onChange={(e) => setEssay(e.target.value)}
-                                        disabled={isSubmitting || !!feedback}
-                                        placeholder="Bắt đầu viết essay của bạn ở đây..."
-                                        className="w-full min-h-[400px] p-6 text-slate-800 leading-relaxed resize-none focus:outline-none border-none text-base disabled:bg-slate-50"
-                                    />
-                                    {!feedback && (
-                                        <div className="border-t border-slate-100 p-4 flex items-center justify-between bg-slate-50">
-                                            <p className="text-sm text-slate-500">
-                                                {wordCount < 250 ? `Cần thêm ${250 - wordCount} từ nữa để đạt yêu cầu cơ bản` : '✅ Đã đạt yêu cầu tối thiểu 250 từ'}
-                                            </p>
-                                            <Button onClick={handleSubmit} disabled={isSubmitting || wordCount < 50} className="bg-emerald-600 hover:bg-emerald-700 flex items-center gap-2">
-                                                {isSubmitting ? <><Loader2 className="h-4 w-4 animate-spin" /> AI đang chấm...</> : <><Send className="h-4 w-4" /> Nộp bài</>}
-                                            </Button>
-                                        </div>
-                                    )}
-                                </>
-                            )}
+                            <h3 className="font-bold text-slate-900 mb-2">{selected.title}</h3>
+                            <p className="text-sm text-slate-700 leading-relaxed">{prompt}</p>
+                            {imageUrl && <img src={imageUrl} alt="Task 1 chart" className="mt-3 rounded-lg border max-w-full" />}
+                            <div className="mt-4 bg-amber-50 rounded-lg p-3 text-xs text-amber-800 border border-amber-200">
+                                💡 {tip}
+                            </div>
                         </div>
                     </div>
 
-                    {/* Right: AI Feedback Panel */}
-                    <div className="lg:col-span-2 space-y-4">
-                        {feedback ? (
-                            <>
-                                {/* Overall Score */}
-                                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 text-center">
-                                    <p className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-2">Band Score</p>
-                                    <div className="inline-flex items-center justify-center h-20 w-20 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white mx-auto">
-                                        <span className="text-3xl font-bold">{feedback.bandScore}</span>
-                                    </div>
-                                    <div className="flex items-center justify-center gap-1 mt-3">
-                                        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(i => (
-                                            <Star key={i} className={`h-4 w-4 ${i <= Math.round(feedback.bandScore) ? 'text-yellow-400 fill-yellow-400' : 'text-slate-200'}`} />
-                                        ))}
-                                    </div>
+                    {/* Writing area */}
+                    <div className="lg:col-span-3 space-y-4">
+                        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+                            <div className="flex items-center justify-between mb-3">
+                                <span className="text-sm font-medium text-slate-600">Bài làm của bạn</span>
+                                <div className="flex items-center gap-2">
+                                    <span className={`text-sm font-bold px-2 py-0.5 rounded ${wordCount >= minWords ? "text-emerald-700 bg-emerald-100" : "text-amber-700 bg-amber-100"}`}>
+                                        {wordCount} / {minWords}+ từ
+                                    </span>
                                 </div>
+                            </div>
+                            <textarea
+                                value={essay}
+                                onChange={handleEssayChange}
+                                disabled={isSubmitting}
+                                placeholder={`Bắt đầu viết ${taskType} của bạn tại đây...`}
+                                className="w-full h-80 resize-none border-0 outline-none text-slate-800 text-sm leading-relaxed placeholder:text-slate-300 bg-transparent"
+                            />
+                            <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
+                                <p className="text-xs text-slate-400">AI sẽ chấm theo 4 tiêu chí: Task, Coherence, Vocabulary, Grammar</p>
+                                <Button onClick={handleSubmit} disabled={isSubmitting || wordCount < Math.floor(minWords * 0.5)} className="bg-purple-600 hover:bg-purple-700 gap-2 disabled:opacity-50">
+                                    {isSubmitting ? <><Loader2 className="h-4 w-4 animate-spin" /> Đang chấm...</> : <><Send className="h-4 w-4" /> Nộp bài</>}
+                                </Button>
+                            </div>
+                        </div>
 
-                                {/* Sub-scores */}
-                                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
-                                    <h3 className="text-sm font-bold text-slate-700 mb-3">Điểm chi tiết</h3>
-                                    <div className="space-y-2">
-                                        {[
-                                            { label: "Task Achievement", score: feedback.taskAchievementScore, abbr: "TA" },
-                                            { label: "Coherence & Cohesion", score: feedback.cohesionScore, abbr: "CC" },
-                                            { label: "Lexical Resource", score: feedback.vocabularyScore, abbr: "LR" },
-                                            { label: "Grammar", score: feedback.grammarScore, abbr: "GRA" },
-                                        ].map(item => (
-                                            <div key={item.abbr} className="flex items-center justify-between">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-xs font-bold text-slate-400 w-8">{item.abbr}</span>
-                                                    <span className="text-sm text-slate-600">{item.label}</span>
-                                                </div>
-                                                <span className={`text-sm font-bold px-2 py-0.5 rounded border ${getScoreColor(item.score)}`}>{item.score}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-
-                                    {/* Score Bar */}
-                                    <div className="mt-4 space-y-1.5">
-                                        {[
-                                            { label: "TA", score: feedback.taskAchievementScore, color: "bg-blue-500" },
-                                            { label: "CC", score: feedback.cohesionScore, color: "bg-emerald-500" },
-                                            { label: "LR", score: feedback.vocabularyScore, color: "bg-violet-500" },
-                                            { label: "GRA", score: feedback.grammarScore, color: "bg-amber-500" },
-                                        ].map(item => (
-                                            <div key={item.label} className="flex items-center gap-2">
-                                                <span className="text-xs text-slate-400 w-7">{item.label}</span>
-                                                <div className="flex-1 bg-slate-100 rounded-full h-2">
-                                                    <div className={`${item.color} h-2 rounded-full transition-all`} style={{ width: `${(item.score / 9) * 100}%` }} />
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
+                        {/* Feedback */}
+                        {feedback && showFeedback && (
+                            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h3 className="font-bold text-slate-900 flex items-center gap-2"><Star className="h-5 w-5 text-amber-500" /> AI Examiner Feedback</h3>
+                                    <button onClick={() => setShowFeedback(!showFeedback)} className="p-1 hover:bg-slate-100 rounded"><ChevronUp className="h-4 w-4" /></button>
                                 </div>
-
-                                {/* Detailed Feedback */}
-                                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
-                                    <h3 className="text-sm font-bold text-slate-700 mb-3 md:mb-4">📝 Nhận xét chi tiết từ AI</h3>
-                                    <div
-                                        className="prose prose-sm max-w-none text-slate-700 leading-relaxed space-y-3 mb-6 font-medium"
-                                        dangerouslySetInnerHTML={{ __html: feedback.feedback }}
-                                    />
-
-                                    {feedback.improvements && feedback.improvements.length > 0 && (
-                                        <>
-                                            <h4 className="text-sm font-bold text-slate-700 mb-3 border-t border-slate-100 pt-4">Gợi ý cách sửa (Actionable Improvements):</h4>
-                                            <ul className="space-y-3">
-                                                {feedback.improvements.map((imp: string, idx: number) => (
-                                                    <li key={idx} className="flex gap-3 bg-blue-50/50 p-4 rounded-xl border border-blue-100/50 shadow-sm items-start">
-                                                        <span className="text-blue-600 font-bold bg-blue-100 h-6 w-6 flex items-center justify-center rounded-full text-xs shrink-0 mt-0.5">{idx + 1}</span>
-                                                        <div
-                                                            className="text-sm text-slate-700 leading-relaxed font-medium"
-                                                            dangerouslySetInnerHTML={{ __html: imp }}
-                                                        />
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </>
-                                    )}
+                                <div className="text-center mb-5">
+                                    <div className="text-4xl font-black text-purple-700">{feedback.bandScore}</div>
+                                    <div className="text-sm text-slate-500">Band Score</div>
                                 </div>
-
-                                {/* Actions */}
-                                <div className="flex gap-3">
-                                    <Button variant="outline" className="flex-1" onClick={() => { setFeedback(null); setEssay(""); setTimeLeft(40 * 60); setIsTimerRunning(false); }}>
-                                        Viết lại
-                                    </Button>
-                                    <Link href="/dashboard" className="flex-1">
-                                        <Button className="w-full bg-blue-600 hover:bg-blue-700">Về Dashboard</Button>
-                                    </Link>
+                                <div className="grid grid-cols-2 gap-3 mb-5">
+                                    {[
+                                        { label: "Task Achievement", score: feedback.taskAchievementScore },
+                                        { label: "Coherence & Cohesion", score: feedback.cohesionScore },
+                                        { label: "Lexical Resource", score: feedback.vocabularyScore },
+                                        { label: "Grammar", score: feedback.grammarScore },
+                                    ].map(item => (
+                                        <div key={item.label} className="bg-slate-50 rounded-lg p-3">
+                                            <div className="text-xs text-slate-500 mb-1">{item.label}</div>
+                                            <div className="font-bold text-lg">{item.score}</div>
+                                            <div className="h-1.5 bg-slate-200 rounded-full mt-1"><div className="h-full bg-purple-500 rounded-full" style={{ width: `${(item.score / 9) * 100}%` }} /></div>
+                                        </div>
+                                    ))}
                                 </div>
-                            </>
-                        ) : (
-                            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-                                <h3 className="text-sm font-bold text-slate-700 mb-3">🤖 AI Examiner</h3>
-                                <p className="text-sm text-slate-500 leading-relaxed">
-                                    Sau khi bạn nộp bài, AI sẽ chấm điểm theo 4 tiêu chí IELTS Writing:
-                                </p>
-                                <ul className="mt-3 space-y-2 text-sm text-slate-600">
-                                    <li className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-blue-500" /> Task Achievement (TR)</li>
-                                    <li className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-emerald-500" /> Coherence & Cohesion (CC)</li>
-                                    <li className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-violet-500" /> Lexical Resource (LR)</li>
-                                    <li className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-amber-500" /> Grammatical Range (GRA)</li>
-                                </ul>
-                                <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
-                                    <p className="text-xs text-blue-700">💡 Mẹo: Viết ít nhất 250 từ cho Task 2, 150 từ cho Task 1. Nên viết trong 40 phút.</p>
-                                </div>
+                                <div className="bg-slate-50 rounded-lg p-4 text-sm text-slate-700 leading-relaxed" dangerouslySetInnerHTML={{ __html: feedback.feedback }} />
                             </div>
                         )}
                     </div>
