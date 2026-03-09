@@ -100,7 +100,7 @@ export default function LoginPage() {
                             <BrainCircuit className="h-6 w-6 text-white" />
                         </div>
                         <span className="font-bold text-2xl tracking-tight text-slate-900">
-                            IELTS Mastery
+                            IELTS SKIBIDI
                         </span>
                     </Link>
                 </div>

@@ -42,6 +42,9 @@ model User {
   onboardingDone  Boolean  @default(false)
   currentBand     Float?
   weakestSkill    String?  // LISTENING | READING | WRITING | SPEAKING
+  school          String?  // School or workplace name
+  occupation      String?  // student_highschool | student_university | worker | other
+  referralSource  String?  // facebook | tiktok | youtube | friend | google | teacher | other
 
   // Gamification & Stats
   targetBand            Float?

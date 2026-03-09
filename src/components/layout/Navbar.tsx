@@ -29,7 +29,7 @@ export function Navbar() {
                         <BrainCircuit className="h-5 w-5 text-white" />
                     </div>
                     <span className="font-bold text-xl tracking-tight bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                        IELTS Mastery
+                        IELTS SKIBIDI
                     </span>
                 </Link>
 

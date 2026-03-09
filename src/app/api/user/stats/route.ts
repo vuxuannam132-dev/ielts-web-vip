@@ -76,6 +76,9 @@ export async function PUT(req: NextRequest) {
         if (body.weakestSkill != null) data.weakestSkill = body.weakestSkill;
         if (body.onboardingDone != null) data.onboardingDone = Boolean(body.onboardingDone);
         if (body.bandReminderShown != null) data.bandReminderShown = Boolean(body.bandReminderShown);
+        if (body.school != null) data.school = body.school;
+        if (body.occupation != null) data.occupation = body.occupation;
+        if (body.referralSource != null) data.referralSource = body.referralSource;
 
         const user = await prisma.user.update({ where: { id: session.id }, data });
         return NextResponse.json({ success: true, user });

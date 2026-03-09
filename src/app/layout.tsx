@@ -8,8 +8,8 @@ import { Providers } from "@/components/Providers";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "IELTS Mastery - Practice & Succeed",
-  description: "Full-stack IELTS preparation platform with AI tutoring.",
+  title: "IELTS SKIBIDI - Practice & Succeed",
+  description: "Nền tảng luyện thi IELTS ứng dụng AI #1 - IELTS SKIBIDI",
 };
 
 export default function RootLayout({

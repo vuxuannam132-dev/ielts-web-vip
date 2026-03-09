@@ -60,7 +60,7 @@ export default function RegisterPage() {
                             <BrainCircuit className="h-6 w-6 text-white" />
                         </div>
                         <span className="font-bold text-2xl tracking-tight text-white drop-shadow-sm">
-                            IELTS Mastery
+                            IELTS SKIBIDI
                         </span>
                     </Link>
                 </div>
