@@ -94,7 +94,7 @@ function WelcomeView() {
     return (
         <div className="space-y-6">
             <h1 className="text-3xl font-bold text-slate-900">Dashboard</h1>
-            <p className="text-slate-500">Chào mừng bạn trở lại hệ thống quản trị IELTS Mastery.</p>
+            <p className="text-slate-500">Chào mừng bạn trở lại hệ thống quản trị IELTS SKIBIDI.</p>
             {loading ? <p className="text-slate-500">Đang tải dữ liệu...</p> : (
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-6">
                     <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">

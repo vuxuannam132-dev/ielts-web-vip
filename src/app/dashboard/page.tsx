@@ -45,7 +45,7 @@ function SidebarLink({ href, icon: Icon, label, active }: { href: string; icon: 
 }
 
 function DashboardContent() {
-    const { data: session } = useSession();
+    const { data: session, status } = useSession();
     const searchParams = useSearchParams();
     const user = session?.user as any;
 
@@ -78,7 +78,9 @@ function DashboardContent() {
     }, [searchParams]);
 
     useEffect(() => {
-        if (!user?.id) return;
+        // Wait for session to load
+        if (status === "loading") return;
+        // Call stats API - works with or without user.id since auth is cookie-based
         fetch("/api/user/stats").then(r => r.json()).then(data => {
             if (data && !data.error) {
                 setStats(data);
@@ -97,18 +99,26 @@ function DashboardContent() {
                         if (daysSinceJoin >= 2) setShowBandReminder(true);
                     }
                 }
+            } else {
+                // Stats failed — still show onboarding for new users
+                console.warn("[dashboard] Stats API error:", data?.error);
+                setShowOnboarding(true);
             }
             setLoadingStats(false);
-        }).catch(() => setLoadingStats(false));
+        }).catch(() => {
+            setLoadingStats(false);
+            setShowOnboarding(true);
+        });
 
-        const daily = getDailyMissions(user.id);
+        const userId = user?.id || "guest";
+        const daily = getDailyMissions(userId);
         setMissions(daily);
 
         const todayStr = new Date().toDateString();
-        const key = `missions_done_${user.id}_${todayStr}`;
+        const key = `missions_done_${userId}_${todayStr}`;
         const stored = localStorage.getItem(key);
         if (stored) setCompletedMissions(JSON.parse(stored));
-    }, [user?.id]);
+    }, [status]);
 
     const saveTarget = async () => {
         const val = parseFloat(newTarget);
