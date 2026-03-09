@@ -179,7 +179,7 @@ export default function OnboardingModal({ onComplete }: OnboardingModalProps) {
                                 type="text"
                                 value={school}
                                 onChange={e => setSchool(e.target.value)}
-                                placeholder="VD: ĐH Kinh Tế Quốc Dân, THPT Chu Văn An, Đi làm rồi..."
+                                placeholder="VD: Trường Đời, Trường THPT Đoàn Kết-Hai Bà Trưng,..."
                                 className="w-full border-2 border-slate-200 focus:border-blue-500 rounded-xl px-4 py-3 text-sm outline-none transition-colors"
                             />
                             <p className="text-xs text-slate-400 mt-2">💡 Gõ tên trường bạn đang học, hoặc nơi làm việc nếu đã đi làm.</p>
