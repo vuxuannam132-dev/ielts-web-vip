@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Users, FileText, Settings, Shield, Edit2, KeyRound, Loader2, Trash2, Banknote, LayoutDashboard, Plus, Flame } from "lucide-react";
+import { Users, FileText, Settings, Shield, Edit2, KeyRound, Loader2, Trash2, Banknote, LayoutDashboard, Plus, Flame, Bug } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 
@@ -40,6 +40,7 @@ export default function AdminDashboard() {
                         { id: "users", label: "Quản lý người dùng", icon: Users },
                         { id: "content", label: "Quản lý bài tập", icon: FileText },
                         { id: "payment", label: "Thanh toán & Gói", icon: Banknote },
+                        { id: "bugs", label: "Báo lỗi", icon: Bug },
                         { id: "settings", label: "Cài đặt hệ thống", icon: Settings },
                     ].map(tab => (
                         <button
@@ -60,6 +61,7 @@ export default function AdminDashboard() {
                 {activeTab === "users" && <UsersManager />}
                 {activeTab === "payment" && <PaymentConfig />}
                 {activeTab === "settings" && <SystemSettings />}
+                {activeTab === "bugs" && <BugReportsManager />}
                 {activeTab === "content" && (
                     <div className="space-y-6">
                         <div className="flex justify-between items-center">
@@ -224,6 +226,7 @@ function UsersManager() {
                                 <td className="px-6 py-4">
                                     <select value={u.role} onChange={e => handleUpdate(u.id, 'role', e.target.value)} className="bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-lg text-xs font-bold outline-none">
                                         <option value="USER">USER</option>
+                                        <option value="TEACHER">TEACHER</option>
                                         <option value="ADMIN">ADMIN</option>
                                     </select>
                                 </td>
@@ -463,6 +466,90 @@ function SystemSettings() {
                     Lưu cấu hình
                 </button>
             </form>
+        </div>
+    );
+}
+
+// ───────────────────────────────────────────────
+// BUG REPORTS MANAGER
+// ───────────────────────────────────────────────
+
+function BugReportsManager() {
+    const [reports, setReports] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    const fetchReports = async () => {
+        setLoading(true);
+        const res = await fetch("/api/bug-report");
+        if (res.ok) setReports(await res.json());
+        setLoading(false);
+    };
+
+    useEffect(() => { fetchReports(); }, []);
+
+    const updateStatus = async (id: string, status: string) => {
+        await fetch("/api/bug-report", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id, status })
+        });
+        setReports(prev => prev.map(r => r.id === id ? { ...r, status } : r));
+    };
+
+    const statusBadge: Record<string, string> = {
+        OPEN: "bg-red-100 text-red-700",
+        IN_PROGRESS: "bg-amber-100 text-amber-700",
+        RESOLVED: "bg-emerald-100 text-emerald-700",
+    };
+    const statusLabel: Record<string, string> = {
+        OPEN: "Mới", IN_PROGRESS: "Đang xử lý", RESOLVED: "Đã giải quyết"
+    };
+
+    if (loading) return <div className="flex justify-center py-20"><Loader2 className="animate-spin h-8 w-8 text-blue-600" /></div>;
+
+    return (
+        <div className="space-y-4">
+            <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold flex items-center gap-2">
+                    <Bug className="h-6 w-6 text-red-500" /> Báo lỗi từ người dùng ({reports.length})
+                </h2>
+                <button onClick={fetchReports} className="text-sm text-blue-600 hover:underline">Làm mới</button>
+            </div>
+            {reports.length === 0 ? (
+                <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-400">
+                    Chưa có báo cáo lỗi nào.
+                </div>
+            ) : (
+                <div className="space-y-3">
+                    {reports.map(r => (
+                        <div key={r.id} className="bg-white rounded-xl border border-slate-200 p-5">
+                            <div className="flex items-start justify-between gap-4">
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <span className={`px-2 py-0.5 rounded-md text-xs font-bold ${statusBadge[r.status]}`}>{statusLabel[r.status]}</span>
+                                        <h3 className="font-bold text-slate-900 truncate">{r.title}</h3>
+                                    </div>
+                                    <p className="text-sm text-slate-600 mb-2 whitespace-pre-wrap">{r.description}</p>
+                                    <div className="flex flex-wrap gap-3 text-xs text-slate-400">
+                                        {r.userName && <span>👤 {r.userName} ({r.userEmail})</span>}
+                                        {r.url && <span>📍 {r.url}</span>}
+                                        <span>🕐 {new Date(r.createdAt).toLocaleString("vi-VN")}</span>
+                                    </div>
+                                </div>
+                                <select
+                                    value={r.status}
+                                    onChange={e => updateStatus(r.id, e.target.value)}
+                                    className="shrink-0 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-lg text-xs font-medium outline-none"
+                                >
+                                    <option value="OPEN">Mới</option>
+                                    <option value="IN_PROGRESS">Đang xử lý</option>
+                                    <option value="RESOLVED">Đã giải quyết</option>
+                                </select>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
         </div>
     );
 }

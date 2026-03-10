@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
 import { useState } from 'react';
 import { BrainCircuit, LayoutDashboard, LogOut, User, ChevronDown, Shield, Menu, X, Zap, GraduationCap } from 'lucide-react';
+import { BugReportButton } from './BugReportButton';
 
 export function Navbar() {
     const { data: session } = useSession();
@@ -50,6 +51,7 @@ export function Navbar() {
                                     <GraduationCap className="h-4 w-4" /> Lớp học
                                 </Link>
                             )}
+                            <BugReportButton />
                             {/* User dropdown */}
                             <div className="relative">
                                 <button
