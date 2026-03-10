@@ -1,7 +1,9 @@
 export enum PlanTier {
     FREE = 'FREE',
     PRO = 'PRO',
-    PREMIUM = 'PREMIUM'
+    PREMIUM = 'PREMIUM',
+    EDU = 'EDU',
+    TEACHER = 'TEACHER',
 }
 
 export type FeatureKey =
@@ -17,30 +19,34 @@ const FEATURES: Record<FeatureKey, FeatureRoles> = {
         [PlanTier.FREE]: false,
         [PlanTier.PRO]: true,
         [PlanTier.PREMIUM]: true,
+        [PlanTier.EDU]: true,
+        [PlanTier.TEACHER]: true,
     },
     DETAILED_AI_FEEDBACK: {
         [PlanTier.FREE]: false,
         [PlanTier.PRO]: true,
         [PlanTier.PREMIUM]: true,
+        [PlanTier.EDU]: true,
+        [PlanTier.TEACHER]: true,
     },
-    AUDIO_RECORDING: { // Ability to record speaking answers rather than just text
-        [PlanTier.FREE]: true, // basic transcription available to all, capped by budget
+    AUDIO_RECORDING: {
+        [PlanTier.FREE]: true,
         [PlanTier.PRO]: true,
         [PlanTier.PREMIUM]: true,
+        [PlanTier.EDU]: true,
+        [PlanTier.TEACHER]: true,
     },
     ADVANCED_ANALYTICS: {
         [PlanTier.FREE]: false,
         [PlanTier.PRO]: false,
         [PlanTier.PREMIUM]: true,
+        [PlanTier.EDU]: true,
+        [PlanTier.TEACHER]: true,
     }
 };
 
 export const canAccessFeature = (tier: PlanTier, feature: FeatureKey): boolean => {
-    return FEATURES[feature][tier] === true;
+    // TEACHER and PREMIUM/EDU tiers always have full access
+    if (tier === PlanTier.TEACHER || tier === PlanTier.EDU) return true;
+    return FEATURES[feature]?.[tier] === true;
 };
-
-export const requireFeature = (tier: PlanTier, feature: FeatureKey) => {
-    if (!canAccessFeature(tier, feature)) {
-        throw new Error(`Your current plan (${tier}) does not include access to ${feature}. Please upgrade.`);
-    }
-}

@@ -4,7 +4,7 @@ import { PlanTier } from './entitlements';
 export const AI_LIMITS: Record<string, { tokensPerMonth: number; requestsPerMonth: number }> = {
     [PlanTier.FREE]: {
         tokensPerMonth: 50000,
-        requestsPerMonth: 20, // High-quality AI evaluations (speaking/writing)
+        requestsPerMonth: 20,
     },
     [PlanTier.PRO]: {
         tokensPerMonth: 500000,
@@ -12,8 +12,16 @@ export const AI_LIMITS: Record<string, { tokensPerMonth: number; requestsPerMont
     },
     [PlanTier.PREMIUM]: {
         tokensPerMonth: 2000000,
-        requestsPerMonth: -1, // Unlimited requests (within token budget)
-    }
+        requestsPerMonth: -1, // Unlimited
+    },
+    [PlanTier.EDU]: {
+        tokensPerMonth: 2000000,
+        requestsPerMonth: -1, // Unlimited
+    },
+    [PlanTier.TEACHER]: {
+        tokensPerMonth: 5000000, // Extra high for teachers
+        requestsPerMonth: -1, // Unlimited
+    },
 }
 
 export class BudgetGuardError extends Error {
@@ -33,7 +41,10 @@ export const checkAIBudget = async (userId: string) => {
         throw new BudgetGuardError("User not found");
     }
 
-    const limits = AI_LIMITS[user.tier];
+    // TEACHER and EDU tiers: never blocked
+    if (user.tier === PlanTier.TEACHER || user.tier === PlanTier.EDU) return true;
+
+    const limits = AI_LIMITS[user.tier] || AI_LIMITS[PlanTier.FREE];
 
     if (user.tokenUsage >= limits.tokensPerMonth) {
         throw new BudgetGuardError(`You have exceeded your monthly token budget for the ${user.tier} plan.`);

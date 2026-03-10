@@ -235,6 +235,8 @@ function UsersManager() {
                                         <option value="FREE">FREE</option>
                                         <option value="PRO">PRO</option>
                                         <option value="PREMIUM">PREMIUM</option>
+                                        <option value="EDU">EDU</option>
+                                        <option value="TEACHER">TEACHER</option>
                                     </select>
                                 </td>
                                 <td className="px-6 py-4 flex justify-end gap-2">

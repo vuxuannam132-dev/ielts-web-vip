@@ -57,6 +57,7 @@ export function Navbar() {
         PRO: { label: 'Pro', cls: 'bg-blue-100 text-blue-700' },
         PREMIUM: { label: 'Premium', cls: 'bg-gradient-to-r from-amber-400 to-orange-500 text-white' },
         EDU: { label: 'EDU', cls: 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white' },
+        TEACHER: { label: 'Teacher', cls: 'bg-gradient-to-r from-violet-600 to-purple-600 text-white' },
     };
     const badge = tierBadge[user?.tier ?? 'FREE'] || tierBadge['FREE'];
 
