@@ -86,8 +86,9 @@ function DashboardContent() {
                 setStats(data);
                 setNewTarget(data.targetBand?.toString() || "");
 
-                // Show onboarding if not done
-                if (!data.onboardingDone) {
+                // Show onboarding only for USER/STUDENT who haven't done it
+                const role = (session?.user as any)?.role;
+                if (!data.onboardingDone && role !== "ADMIN" && role !== "TEACHER") {
                     setShowOnboarding(true);
                 } else {
                     // Check band reminder (after 2 days, if <4 skills done, only show once)
@@ -100,9 +101,8 @@ function DashboardContent() {
                     }
                 }
             } else {
-                // Stats failed — still show onboarding for new users
+                // Stats API error - do NOT show onboarding, could be transient error
                 console.warn("[dashboard] Stats API error:", data?.error);
-                setShowOnboarding(true);
             }
             setLoadingStats(false);
         }).catch(() => {
