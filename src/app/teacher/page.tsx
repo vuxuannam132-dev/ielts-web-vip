@@ -6,7 +6,7 @@ import Link from "next/link";
 import {
     GraduationCap, Plus, Users, Copy, Trash2, Check, X, Clock,
     ChevronRight, BookOpen, Flame, Trophy, Loader2, RefreshCw, QrCode,
-    UserPlus, CalendarDays, Headphones, PenTool, Mic, ClipboardList
+    UserPlus, CalendarDays, Headphones, PenTool, Mic, ClipboardList, Upload
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -117,7 +117,7 @@ export default function TeacherDashboard() {
 
     const pending = activeClass?.members.filter(m => m.status === "PENDING") || [];
     const approved = activeClass?.members.filter(m => m.status === "APPROVED") || [];
-    const tierColor: Record<string, string> = { FREE: "bg-slate-100 text-slate-600", PRO: "bg-blue-100 text-blue-700", PREMIUM: "bg-amber-100 text-amber-700", EDU: "bg-purple-100 text-purple-700", STUDENT: "bg-emerald-100 text-emerald-700" };
+    const tierColor: Record<string, string> = { FREE: "bg-slate-100 text-slate-600", PRO: "bg-blue-100 text-blue-700", PREMIUM: "bg-amber-100 text-amber-700", EDU: "bg-purple-100 text-purple-700", STUDENT: "bg-emerald-100 text-emerald-700", TEACHER: "bg-violet-100 text-violet-700" };
     const skillIcons: Record<string, any> = { LISTENING: Headphones, READING: BookOpen, WRITING: PenTool, SPEAKING: Mic };
 
     return (
@@ -280,9 +280,22 @@ export default function TeacherDashboard() {
                                 {/* Assignments Tab */}
                                 {tab === "assignments" && (
                                     <div className="space-y-4">
+                                        {/* Upload bộ đề shortcut */}
+                                        <Link href="/teacher/upload"
+                                            className="flex items-center gap-3 bg-gradient-to-r from-violet-600 to-purple-600 text-white p-4 rounded-2xl hover:from-violet-700 hover:to-purple-700 transition-all shadow-md shadow-violet-500/20 group">
+                                            <div className="h-10 w-10 bg-white/20 rounded-xl flex items-center justify-center">
+                                                <Upload className="h-5 w-5" />
+                                            </div>
+                                            <div className="flex-1">
+                                                <p className="font-bold text-base">🛠️ Tạo bộ đề luyện tập</p>
+                                                <p className="text-xs text-white/70">Soạn Reading / Listening / Writing / Speaking chuẩn IELTS</p>
+                                            </div>
+                                            <ChevronRight className="h-5 w-5 text-white/60 group-hover:translate-x-1 transition-transform" />
+                                        </Link>
+
                                         {/* Create Assignment */}
                                         <div className="bg-white rounded-2xl border border-slate-200 p-5">
-                                            <h3 className="font-bold text-slate-900 mb-3 flex items-center gap-2"><Plus className="h-4 w-4 text-blue-600" /> Giao bài mới</h3>
+                                            <h3 className="font-bold text-slate-900 mb-3 flex items-center gap-2"><Plus className="h-4 w-4 text-blue-600" /> Giao bài (nhắn nhở nhanh)</h3>
                                             <div className="space-y-3">
                                                 <input value={assignTitle} onChange={e => setAssignTitle(e.target.value)} placeholder="Tiêu đề bài tập *" className="w-full border-2 border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:border-blue-500 outline-none" />
                                                 <textarea value={assignDesc} onChange={e => setAssignDesc(e.target.value)} placeholder="Mô tả / hướng dẫn (tuỳ chọn)" rows={2} className="w-full border-2 border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:border-blue-500 outline-none resize-none" />
