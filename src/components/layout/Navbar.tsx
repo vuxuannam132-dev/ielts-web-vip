@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
 import { useState } from 'react';
-import { BrainCircuit, LayoutDashboard, LogOut, User, ChevronDown, Shield, Menu, X, Zap } from 'lucide-react';
+import { BrainCircuit, LayoutDashboard, LogOut, User, ChevronDown, Shield, Menu, X, Zap, GraduationCap } from 'lucide-react';
 
 export function Navbar() {
     const { data: session } = useSession();
@@ -43,6 +43,11 @@ export function Navbar() {
                             {user?.role === 'ADMIN' && (
                                 <Link href="/admin" className="flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-blue-600 transition-colors">
                                     <Shield className="h-4 w-4" /> Admin
+                                </Link>
+                            )}
+                            {(user?.role === 'TEACHER' || user?.role === 'ADMIN') && (
+                                <Link href="/teacher" className="flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-blue-600 transition-colors">
+                                    <GraduationCap className="h-4 w-4" /> Lớp học
                                 </Link>
                             )}
                             {/* User dropdown */}
