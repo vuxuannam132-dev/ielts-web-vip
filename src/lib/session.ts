@@ -1,10 +1,5 @@
 import { NextRequest } from "next/server";
-import { jwtVerify } from "jose";
-
-// Support both AUTH_SECRET and NEXTAUTH_SECRET for compatibility
-const secret = new TextEncoder().encode(
-    process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || "fallback-secret"
-);
+import { getToken } from "next-auth/jwt";
 
 export interface SessionUser {
     id: string;
@@ -15,46 +10,31 @@ export interface SessionUser {
 }
 
 /**
- * Decodes the NextAuth JWT from request cookies.
- * Works on both Edge and Node runtimes.
- * NextAuth v5 stores user ID in token.id (not sub), so we read both.
+ * Decodes the NextAuth session JWT using NextAuth's own getToken helper.
+ * This is the recommended approach - it correctly handles cookie names,
+ * encryption, and signing without manual jose implementation.
  */
 export async function getSessionFromRequest(req: NextRequest): Promise<SessionUser | null> {
     try {
-        // Try all known cookie names for NextAuth v5 / v4
-        const token =
-            req.cookies.get("__Secure-authjs.session-token")?.value ||
-            req.cookies.get("authjs.session-token")?.value ||
-            req.cookies.get("__Secure-next-auth.session-token")?.value ||
-            req.cookies.get("next-auth.session-token")?.value;
-
-        if (!token) {
-            console.log("[session] No auth cookie found. Available cookies:", req.cookies.getAll().map(c => c.name).join(", "));
-            return null;
-        }
-
-        const { payload } = await jwtVerify(token, secret, {
-            algorithms: ["HS256"],
+        const token = await getToken({
+            req,
+            secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || "",
         });
 
-        // NextAuth v5 JWT: user id is stored in payload.id (from jwt callback token.id = user.id)
-        // Also sometimes in payload.sub as fallback
-        const userId = (payload.id as string) || (payload.sub as string);
+        if (!token) return null;
 
-        if (!userId) {
-            console.log("[session] JWT missing user id. Payload keys:", Object.keys(payload).join(", "));
-            return null;
-        }
+        const userId = (token.id as string) || (token.sub as string);
+        if (!userId) return null;
 
         return {
             id: userId,
-            email: (payload.email as string) || "",
-            name: payload.name as string | undefined,
-            role: (payload.role as string) || "USER",
-            tier: (payload.tier as string) || "FREE",
+            email: (token.email as string) || "",
+            name: token.name as string | undefined,
+            role: (token.role as string) || "USER",
+            tier: (token.tier as string) || "FREE",
         };
     } catch (err) {
-        console.log("[session] JWT decode failed:", err instanceof Error ? err.message : String(err));
+        console.error("[session] getToken failed:", err);
         return null;
     }
 }
