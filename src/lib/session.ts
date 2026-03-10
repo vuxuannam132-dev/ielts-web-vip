@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
-import { compactDecrypt } from "jose";
-import { hkdfSync } from "crypto";
+import { hkdf } from "@panva/hkdf";
+import { jwtDecrypt } from "jose";
 
 export interface SessionUser {
     id: string;
@@ -11,20 +11,18 @@ export interface SessionUser {
 }
 
 /**
- * Auth.js v5 (NextAuth v5) encrypts session tokens as JWE (alg=dir, enc=A256GCM).
- * Key derivation uses HKDF (RFC 5869):
- *   - hash  = sha256
- *   - salt  = cookie name (e.g. "__Secure-authjs.session-token")
- *   - info  = "Auth.js Generated Encryption Key (<cookieName>)"
- *   - keylen = 32 bytes (256-bit for AES-256-GCM)
+ * Auth.js v5 (next-auth v5) session JWT decoding.
  * 
- * Source: nextauthjs/next-auth packages/core/src/jwt.ts
+ * From Auth.js source (packages/core/src/jwt.ts):
+ * - enc = "A256CBC-HS512" (NOT A256GCM!)
+ * - Key derivation: HKDF(sha256, secret, salt=cookieName, 
+ *     info="Auth.js Generated Encryption Key (<salt>)", keylen=64)
+ * - Uses @panva/hkdf + jwtDecrypt from jose
  */
-function deriveEncryptionKey(secret: string, cookieName: string): Uint8Array {
-    const info = Buffer.from(`Auth.js Generated Encryption Key (${cookieName})`);
-    const salt = Buffer.from(cookieName);
-    const key = hkdfSync("sha256", secret, salt, info, 32);
-    return new Uint8Array(key);
+async function getDerivedEncryptionKey(secret: string, salt: string): Promise<Uint8Array> {
+    const info = `Auth.js Generated Encryption Key (${salt})`;
+    // A256CBC-HS512 needs 64 bytes (512 bits)
+    return hkdf("sha256", secret, salt, info, 64);
 }
 
 export async function getSessionFromRequest(req: NextRequest): Promise<SessionUser | null> {
@@ -32,8 +30,8 @@ export async function getSessionFromRequest(req: NextRequest): Promise<SessionUs
         const rawSecret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || "";
         if (!rawSecret) return null;
 
-        // Determine which cookie is present (production vs dev)
-        const candidates = [
+        // Auth.js v5 cookie names in production vs dev
+        const cookieCandidates = [
             "__Secure-authjs.session-token",
             "authjs.session-token",
             "__Secure-next-auth.session-token",
@@ -43,7 +41,7 @@ export async function getSessionFromRequest(req: NextRequest): Promise<SessionUs
         let cookieToken: string | undefined;
         let cookieName = "";
 
-        for (const name of candidates) {
+        for (const name of cookieCandidates) {
             const val = req.cookies.get(name)?.value;
             if (val) {
                 cookieToken = val;
@@ -54,14 +52,17 @@ export async function getSessionFromRequest(req: NextRequest): Promise<SessionUs
 
         if (!cookieToken || !cookieName) return null;
 
-        // Derive AES-256-GCM key using HKDF exactly as Auth.js v5 does
-        const encKey = deriveEncryptionKey(rawSecret, cookieName);
+        // Derive 64-byte key for A256CBC-HS512
+        const encryptionKey = await getDerivedEncryptionKey(rawSecret, cookieName);
 
-        // Decrypt JWE compact token
-        const { plaintext } = await compactDecrypt(cookieToken, encKey);
-        const payload = JSON.parse(new TextDecoder().decode(plaintext));
+        // Decrypt using jose jwtDecrypt (handles JWE)
+        const { payload } = await jwtDecrypt(cookieToken, encryptionKey, {
+            clockTolerance: 15,
+            keyManagementAlgorithms: ["dir"],
+            contentEncryptionAlgorithms: ["A256CBC-HS512", "A256GCM"],
+        });
 
-        // Auth.js v5: user id is in payload.id, falling back to standard JWT sub
+        // Auth.js v5 stores user.id in token.id (from jwt callback: token.id = user.id)
         const userId = (payload.id as string) || (payload.sub as string);
         if (!userId) return null;
 
