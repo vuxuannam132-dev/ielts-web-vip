@@ -12,6 +12,8 @@ export const metadata: Metadata = {
   description: "Nền tảng luyện thi IELTS ứng dụng AI #1 - IELTS SKIBIDI",
 };
 
+import { WelcomeModal } from "@/components/WelcomeModal";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -21,6 +23,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${inter.className} min-h-screen bg-slate-50 flex flex-col`}>
         <Providers>
+          <WelcomeModal />
           <Navbar />
           <main className="flex-1">
             {children}
