@@ -59,6 +59,14 @@ export const authConfig: NextAuthConfig = {
                     const valid = await bcrypt.compare(password, user.password);
                     if (!valid) return null;
 
+                    if (user.isLocked) {
+                        throw new Error('Tài khoản đã bị khóa - bạn không thể sử dụng được vui lòng liên hệ admin để mở lại');
+                    }
+
+                    if (!user.isVerified) {
+                        throw new Error('not_verified');
+                    }
+
                     return {
                         id: user.id,
                         name: user.name,

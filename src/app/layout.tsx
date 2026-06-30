@@ -13,6 +13,7 @@ export const metadata: Metadata = {
 };
 
 import { WelcomeModal } from "@/components/WelcomeModal";
+import BugReportWidget from "@/components/ui/BugReportWidget";
 
 export default function RootLayout({
   children,
@@ -27,6 +28,7 @@ export default function RootLayout({
           <Navbar />
           <main className="flex-1">
             {children}
+            <BugReportWidget />
           </main>
         </Providers>
       </body>

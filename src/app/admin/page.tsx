@@ -61,7 +61,7 @@ export default function AdminDashboard() {
                 {activeTab === "users" && <UsersManager />}
                 {activeTab === "payment" && <PaymentConfig />}
                 {activeTab === "settings" && <SystemSettings />}
-                {activeTab === "bugs" && <BugReportsManager />}
+                {activeTab === "logs" && <ActivityLogsManager />}
                 {activeTab === "content" && (
                     <div className="space-y-6">
                         <div className="flex justify-between items-center">
@@ -220,8 +220,20 @@ function UsersManager() {
                         {users.map(u => (
                             <tr key={u.id} className="hover:bg-slate-50/50">
                                 <td className="px-6 py-4">
-                                    <p className="font-bold text-slate-900">{u.email}</p>
-                                    <p className="text-slate-500 text-xs">{u.name}</p>
+                                    <div className="flex flex-col gap-1">
+                                        <p className="font-bold text-slate-900">{u.email}</p>
+                                        <p className="text-slate-500 text-xs">{u.name}</p>
+                                        <div className="flex gap-1 mt-1">
+                                            {u.isVerified ? (
+                                                <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded text-[10px] font-bold">Đã xác thực</span>
+                                            ) : (
+                                                <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded text-[10px] font-bold">Chưa xác thực</span>
+                                            )}
+                                            {u.isLocked && (
+                                                <span className="px-1.5 py-0.5 bg-red-100 text-red-700 rounded text-[10px] font-bold">Bị khóa</span>
+                                            )}
+                                        </div>
+                                    </div>
                                 </td>
                                 <td className="px-6 py-4">
                                     <select value={u.role} onChange={e => handleUpdate(u.id, 'role', e.target.value)} className="bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-lg text-xs font-bold outline-none">
@@ -239,7 +251,13 @@ function UsersManager() {
                                         <option value="TEACHER">TEACHER</option>
                                     </select>
                                 </td>
-                                <td className="px-6 py-4 flex justify-end gap-2">
+                                <td className="px-6 py-4 flex justify-end gap-2 items-center h-full">
+                                    <button 
+                                        onClick={() => handleUpdate(u.id, 'isLocked', !u.isLocked)} 
+                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold ${u.isLocked ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100' : 'bg-red-50 text-red-600 hover:bg-red-100'}`}
+                                    >
+                                        {u.isLocked ? 'Mở khóa' : 'Khóa'}
+                                    </button>
                                     <button onClick={() => handleResetPassword(u.id, u.email)} title="Đổi mật khẩu" className="p-2 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg">
                                         <KeyRound className="h-4 w-4" />
                                     </button>
@@ -473,38 +491,50 @@ function SystemSettings() {
 }
 
 // ───────────────────────────────────────────────
-// BUG REPORTS MANAGER
+// ACTIVITY LOGS MANAGER
 // ───────────────────────────────────────────────
 
-function BugReportsManager() {
-    const [reports, setReports] = useState<any[]>([]);
+function ActivityLogsManager() {
+    const [logs, setLogs] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
-    const fetchReports = async () => {
+    const fetchLogs = async () => {
         setLoading(true);
-        const res = await fetch("/api/bug-report");
-        if (res.ok) setReports(await res.json());
+        const res = await fetch("/api/admin/logs");
+        if (res.ok) setLogs(await res.json());
         setLoading(false);
     };
 
-    useEffect(() => { fetchReports(); }, []);
+    useEffect(() => { fetchLogs(); }, []);
 
-    const updateStatus = async (id: string, status: string) => {
-        await fetch("/api/bug-report", {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id, status })
-        });
-        setReports(prev => prev.map(r => r.id === id ? { ...r, status } : r));
+    const getLogIcon = (type: string) => {
+        switch (type) {
+            case 'ACCOUNT': return <Users className="w-5 h-5 text-blue-500" />;
+            case 'POST': return <FileText className="w-5 h-5 text-emerald-500" />;
+            case 'SECURITY': return <Shield className="w-5 h-5 text-orange-500" />;
+            case 'BUG': return <Bug className="w-5 h-5 text-red-500" />;
+            default: return <Activity className="w-5 h-5 text-slate-500" />;
+        }
     };
 
-    const statusBadge: Record<string, string> = {
-        OPEN: "bg-red-100 text-red-700",
-        IN_PROGRESS: "bg-amber-100 text-amber-700",
-        RESOLVED: "bg-emerald-100 text-emerald-700",
+    const getLogColor = (type: string) => {
+        switch (type) {
+            case 'ACCOUNT': return 'bg-blue-100 text-blue-700 border-blue-200';
+            case 'POST': return 'bg-emerald-100 text-emerald-700 border-emerald-200';
+            case 'SECURITY': return 'bg-orange-100 text-orange-700 border-orange-200';
+            case 'BUG': return 'bg-red-100 text-red-700 border-red-200';
+            default: return 'bg-slate-100 text-slate-700 border-slate-200';
+        }
     };
-    const statusLabel: Record<string, string> = {
-        OPEN: "Mới", IN_PROGRESS: "Đang xử lý", RESOLVED: "Đã giải quyết"
+
+    const getLogLabel = (type: string) => {
+        switch (type) {
+            case 'ACCOUNT': return 'Tài khoản';
+            case 'POST': return 'Bài đăng';
+            case 'SECURITY': return 'Bảo mật';
+            case 'BUG': return 'Báo lỗi';
+            default: return 'Khác';
+        }
     };
 
     if (loading) return <div className="flex justify-center py-20"><Loader2 className="animate-spin h-8 w-8 text-blue-600" /></div>;
@@ -513,40 +543,34 @@ function BugReportsManager() {
         <div className="space-y-4">
             <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-bold flex items-center gap-2">
-                    <Bug className="h-6 w-6 text-red-500" /> Báo lỗi từ người dùng ({reports.length})
+                    <Activity className="h-6 w-6 text-slate-700" /> Nhật ký hoạt động ({logs.length})
                 </h2>
-                <button onClick={fetchReports} className="text-sm text-blue-600 hover:underline">Làm mới</button>
+                <button onClick={fetchLogs} className="text-sm text-blue-600 hover:underline">Làm mới</button>
             </div>
-            {reports.length === 0 ? (
+            {logs.length === 0 ? (
                 <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-400">
-                    Chưa có báo cáo lỗi nào.
+                    Chưa có nhật ký hoạt động nào.
                 </div>
             ) : (
                 <div className="space-y-3">
-                    {reports.map(r => (
-                        <div key={r.id} className="bg-white rounded-xl border border-slate-200 p-5">
-                            <div className="flex items-start justify-between gap-4">
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <span className={`px-2 py-0.5 rounded-md text-xs font-bold ${statusBadge[r.status]}`}>{statusLabel[r.status]}</span>
-                                        <h3 className="font-bold text-slate-900 truncate">{r.title}</h3>
-                                    </div>
-                                    <p className="text-sm text-slate-600 mb-2 whitespace-pre-wrap">{r.description}</p>
-                                    <div className="flex flex-wrap gap-3 text-xs text-slate-400">
-                                        {r.userName && <span>👤 {r.userName} ({r.userEmail})</span>}
-                                        {r.url && <span>📍 {r.url}</span>}
-                                        <span>🕐 {new Date(r.createdAt).toLocaleString("vi-VN")}</span>
-                                    </div>
+                    {logs.map(log => (
+                        <div key={log.id} className="bg-white rounded-xl border border-slate-200 p-5 flex gap-4">
+                            <div className="shrink-0 bg-slate-50 p-2 rounded-xl border border-slate-100">
+                                {getLogIcon(log.type)}
+                            </div>
+                            <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                    <span className={`px-2 py-0.5 rounded text-[11px] font-bold uppercase border ${getLogColor(log.type)}`}>
+                                        {getLogLabel(log.type)}
+                                    </span>
+                                    <span className="text-xs text-slate-500">
+                                        {new Date(log.createdAt).toLocaleString("vi-VN")}
+                                    </span>
                                 </div>
-                                <select
-                                    value={r.status}
-                                    onChange={e => updateStatus(r.id, e.target.value)}
-                                    className="shrink-0 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-lg text-xs font-medium outline-none"
-                                >
-                                    <option value="OPEN">Mới</option>
-                                    <option value="IN_PROGRESS">Đang xử lý</option>
-                                    <option value="RESOLVED">Đã giải quyết</option>
-                                </select>
+                                <p className="text-slate-700 text-sm whitespace-pre-wrap">{log.message}</p>
+                                {log.userId && (
+                                    <p className="text-xs text-slate-400 mt-1">ID Người dùng: {log.userId}</p>
+                                )}
                             </div>
                         </div>
                     ))}

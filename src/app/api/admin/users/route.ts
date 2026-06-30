@@ -23,6 +23,8 @@ export async function GET(req: NextRequest) {
                 estimatedBand: true,
                 createdAt: true,
                 lastLoginAt: true,
+                isVerified: true,
+                isLocked: true,
                 _count: { select: { submissions: true } }
             },
             orderBy: { createdAt: "desc" }
@@ -43,7 +45,7 @@ export async function PATCH(req: NextRequest) {
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
-        const { userId, role, tier, tierExpiresAt } = await req.json();
+        const { userId, role, tier, tierExpiresAt, isLocked } = await req.json();
 
         if (!userId) {
             return NextResponse.json({ error: "Missing userId" }, { status: 400 });
@@ -51,13 +53,25 @@ export async function PATCH(req: NextRequest) {
 
         const data: any = {};
         if (role) data.role = ["ADMIN", "USER", "TEACHER"].includes(role) ? role : "USER";
-        if (tier) data.tier = ["FREE", "PRO", "PREMIUM", "EDU"].includes(tier) ? tier : "FREE";
+        if (tier) data.tier = ["FREE", "PRO", "PREMIUM", "EDU", "TEACHER"].includes(tier) ? tier : "FREE";
         if (tierExpiresAt !== undefined) data.tierExpiresAt = tierExpiresAt ? new Date(tierExpiresAt) : null;
+        if (isLocked !== undefined) data.isLocked = isLocked;
 
         const updated = await prisma.user.update({
             where: { id: userId },
             data,
-            select: { id: true, name: true, role: true, tier: true }
+            select: { id: true, name: true, role: true, tier: true, isLocked: true }
+        });
+
+        if (isLocked !== undefined) {
+            await prisma.activityLog.create({
+                data: {
+                    type: 'SECURITY',
+                    message: `Admin đã ${isLocked ? 'KHÓA' : 'MỞ KHÓA'} tài khoản ${updated.name || userId}.`,
+                    userId: session.id || null
+                }
+            });
+        }
         });
 
         return NextResponse.json({ success: true, user: updated });

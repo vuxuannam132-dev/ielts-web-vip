@@ -30,7 +30,15 @@ function LoginForm() {
             });
 
             if (res?.error) {
-                setError("Email hoặc mật khẩu không chính xác.");
+                if (res.error === 'not_verified' || res.error.includes('not_verified')) {
+                    router.push(`/verify?email=${encodeURIComponent(email)}`);
+                    return;
+                }
+                if (res.error.includes('bị khóa')) {
+                    setError('Tài khoản đã bị khóa - bạn không thể sử dụng được vui lòng liên hệ admin để mở lại');
+                } else {
+                    setError("Email hoặc mật khẩu không chính xác.");
+                }
             } else {
                 router.push(callbackUrl);
                 router.refresh(); // Crucial to update navbar session state
@@ -65,7 +73,7 @@ function LoginForm() {
             <div>
                 <div className="flex items-center justify-between mb-1.5">
                     <label className="block text-sm font-medium text-slate-700">Mật khẩu</label>
-                    <Link href="#" className="text-xs font-semibold text-blue-600 hover:text-blue-700">Quên mật khẩu?</Link>
+                    <Link href="/forgot-password" className="text-xs font-semibold text-blue-600 hover:text-blue-700">Quên mật khẩu?</Link>
                 </div>
                 <div className="relative">
                     <input

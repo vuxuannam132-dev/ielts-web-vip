@@ -57,12 +57,28 @@ model User {
   estimatedBand         Float?   // calculated from first 4 skill submissions
   bandReminderShown     Boolean  @default(false)
 
+  // Advanced Auth & Security
+  isVerified            Boolean  @default(false)
+  verifyCode            String?
+  verifyExpiry          DateTime?
+  resetToken            String?
+  resetExpiry           DateTime?
+  isLocked              Boolean  @default(false)
+
   submissions   Submission[]
   classesAsTeacher Class[]  @relation("TeacherClasses")
   classMembers  ClassMember[]
 
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  type      String   // e.g. ACCOUNT, POST, SECURITY, BUG
+  message   String
+  userId    String?
+  createdAt DateTime @default(now())
 }
 
 // ───────────────────────────────────────────────
