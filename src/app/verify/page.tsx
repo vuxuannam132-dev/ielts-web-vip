@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import GlassButton from "@/components/ui/GlassButton";
 import { CheckCircle2, AlertCircle } from "lucide-react";
 
-export default function VerifyPage() {
+function VerifyContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const email = searchParams.get("email");
@@ -41,7 +40,7 @@ export default function VerifyPage() {
 
       setSuccess(true);
       setTimeout(() => {
-        router.push("/dashboard");
+        router.push("/");
       }, 2000);
     } catch (err: any) {
       setError(err.message);
@@ -64,10 +63,10 @@ export default function VerifyPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-slate-50">
-      <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-blue-400 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob" />
-      <div className="absolute top-[-10%] right-[-10%] w-96 h-96 bg-purple-400 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000" />
+      <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-blue-400 rounded-full mix-blend-multiply filter blur-3xl opacity-30" />
+      <div className="absolute top-[-10%] right-[-10%] w-96 h-96 bg-purple-400 rounded-full mix-blend-multiply filter blur-3xl opacity-30" />
       
-      <div className="glass-card w-full max-w-md p-8 relative z-10 rounded-3xl shadow-xl border border-white/50 bg-white/80 backdrop-blur-xl">
+      <div className="w-full max-w-md p-8 relative z-10 rounded-3xl shadow-xl border border-white/50 bg-white/80 backdrop-blur-xl">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600">
             Xác thực Email
@@ -78,7 +77,7 @@ export default function VerifyPage() {
         </div>
 
         {error && (
-          <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-100 flex items-center gap-3 animate-shake">
+          <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-100 flex items-center gap-3">
             <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
             <p className="text-sm text-red-600 font-medium">{error}</p>
           </div>
@@ -100,16 +99,23 @@ export default function VerifyPage() {
             />
           </div>
 
-          <GlassButton
+          <button
             type="submit"
-            variant="primary"
-            className="w-full justify-center"
             disabled={loading || code.length !== 6}
+            className="w-full py-3 px-6 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-xl hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? "Đang xác thực..." : "Xác nhận"}
-          </GlassButton>
+          </button>
         </form>
       </div>
     </div>
+  );
+}
+
+export default function VerifyPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full" /></div>}>
+      <VerifyContent />
+    </Suspense>
   );
 }

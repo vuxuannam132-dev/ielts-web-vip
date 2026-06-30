@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import GlassButton from "@/components/ui/GlassButton";
 import { CheckCircle2, AlertCircle, ArrowLeft } from "lucide-react";
 
 export default function ForgotPasswordPage() {
@@ -62,10 +61,10 @@ export default function ForgotPasswordPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-slate-50">
-      <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-blue-400 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob" />
-      <div className="absolute top-[-10%] right-[-10%] w-96 h-96 bg-purple-400 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000" />
+      <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-blue-400 rounded-full mix-blend-multiply filter blur-3xl opacity-30" />
+      <div className="absolute top-[-10%] right-[-10%] w-96 h-96 bg-purple-400 rounded-full mix-blend-multiply filter blur-3xl opacity-30" />
       
-      <div className="glass-card w-full max-w-md p-8 relative z-10 rounded-3xl shadow-xl border border-white/50 bg-white/80 backdrop-blur-xl">
+      <div className="w-full max-w-md p-8 relative z-10 rounded-3xl shadow-xl border border-white/50 bg-white/80 backdrop-blur-xl">
         <Link href="/login" className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-slate-800 mb-6 transition-colors">
           <ArrowLeft className="w-4 h-4" /> Quay lại đăng nhập
         </Link>
@@ -82,7 +81,7 @@ export default function ForgotPasswordPage() {
         </div>
 
         {error && (
-          <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-100 flex items-center gap-3 animate-shake">
+          <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-100 flex items-center gap-3">
             <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
             <p className="text-sm text-red-600 font-medium">{error}</p>
           </div>
@@ -101,9 +100,13 @@ export default function ForgotPasswordPage() {
                 placeholder="email@example.com"
               />
             </div>
-            <GlassButton type="submit" variant="primary" className="w-full justify-center" disabled={loading}>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-3 px-6 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-xl hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
               {loading ? "Đang gửi..." : "Gửi mã xác nhận"}
-            </GlassButton>
+            </button>
           </form>
         )}
 
@@ -133,9 +136,13 @@ export default function ForgotPasswordPage() {
                 placeholder="••••••••"
               />
             </div>
-            <GlassButton type="submit" variant="primary" className="w-full justify-center" disabled={loading || code.length !== 6}>
+            <button
+              type="submit"
+              disabled={loading || code.length !== 6}
+              className="w-full py-3 px-6 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-xl hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
               {loading ? "Đang xử lý..." : "Đặt lại mật khẩu"}
-            </GlassButton>
+            </button>
           </form>
         )}
 
