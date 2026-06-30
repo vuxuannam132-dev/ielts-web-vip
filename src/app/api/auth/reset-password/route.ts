@@ -24,11 +24,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Mã xác nhận đã hết hạn' }, { status: 400 })
     }
 
-    const passwordHash = await bcrypt.hash(newPassword, 12)
+    const hashedPassword = await bcrypt.hash(newPassword, 12)
 
     await prisma.user.update({
       where: { id: user.id },
-      data: { passwordHash, resetToken: null, resetExpiry: null }
+      data: { password: hashedPassword, resetToken: null, resetExpiry: null }
     })
 
     // Ghi log hoạt động
