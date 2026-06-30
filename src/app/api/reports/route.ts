@@ -11,7 +11,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Nội dung báo lỗi không được để trống' }, { status: 400 })
     }
 
-    let userContext = session?.user ? `[${session.user.name} - ${session.user.email}]` : '[Khách]';
+    const userContext = session?.user ? `[${session.user.name} - ${session.user.email}]` : '[Khách]';
     
     // Ghi log hoạt động loại Lỗi
     await prisma.activityLog.create({

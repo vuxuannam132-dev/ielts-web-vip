@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Users, FileText, Settings, Shield, Edit2, KeyRound, Loader2, Trash2, Banknote, LayoutDashboard, Plus, Flame, Bug } from "lucide-react";
+import { Users, FileText, Settings, Shield, Edit2, KeyRound, Loader2, Trash2, Banknote, LayoutDashboard, Plus, Flame, Bug, Activity } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 
