@@ -21,20 +21,26 @@ export const authConfig: NextAuthConfig = {
             }
             return true;
         },
-        async jwt({ token, user }) {
-            // On first sign-in, `user` is populated — persist role/tier into JWT
+        async jwt({ token, user, trigger, session }) {
+            // On first sign-in, `user` is populated — persist into JWT
             if (user) {
                 token.id = user.id;
-                token.role = (user as { role?: string }).role ?? 'USER';
-                token.tier = (user as { tier?: string }).tier ?? 'FREE';
+                token.role = (user as any).role ?? 'USER';
+                token.tier = (user as any).tier ?? 'FREE';
+                token.isVerified = (user as any).isVerified ?? true;
+            }
+            // Khi gọi update() từ client để refresh isVerified
+            if (trigger === 'update' && session?.isVerified !== undefined) {
+                token.isVerified = session.isVerified;
             }
             return token;
         },
         async session({ session, token }) {
             if (token && session.user) {
                 session.user.id = token.id as string;
-                (session.user as { role?: string }).role = token.role as string;
-                (session.user as { tier?: string }).tier = token.tier as string;
+                (session.user as any).role = token.role as string;
+                (session.user as any).tier = token.tier as string;
+                (session.user as any).isVerified = token.isVerified as boolean;
             }
             return session;
         },
@@ -51,7 +57,6 @@ export const authConfig: NextAuthConfig = {
                 const password = credentials.password as string;
 
                 try {
-                    // Dynamic import to avoid edge runtime issues
                     const { prisma } = await import('@/lib/prisma');
                     const user = await prisma.user.findUnique({ where: { email } });
                     if (!user || !user.password) return null;
@@ -63,20 +68,19 @@ export const authConfig: NextAuthConfig = {
                         throw new Error('Tài khoản đã bị khóa - bạn không thể sử dụng được vui lòng liên hệ admin để mở lại');
                     }
 
-                    if (!user.isVerified) {
-                        throw new Error('not_verified');
-                    }
-
+                    // Cho phép đăng nhập dù chưa xác thực, nhưng trả về isVerified
+                    // để VerifyPromptModal hiện popup yêu cầu xác thực
                     return {
                         id: user.id,
                         name: user.name,
                         email: user.email,
                         role: user.role,
                         tier: user.tier,
-                    };
-                } catch (err) {
-                    console.error('[Auth] Authorization error:', err);
-                    return null;
+                        isVerified: user.isVerified,
+                    } as any;
+                } catch (err: any) {
+                    console.error('[Auth] Authorization error:', err.message);
+                    throw err;
                 }
             },
         }),

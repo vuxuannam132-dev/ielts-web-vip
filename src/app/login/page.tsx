@@ -30,18 +30,14 @@ function LoginForm() {
             });
 
             if (res?.error) {
-                if (res.error === 'not_verified' || res.error.includes('not_verified')) {
-                    router.push(`/verify?email=${encodeURIComponent(email)}`);
-                    return;
-                }
-                if (res.error.includes('bị khóa')) {
+                if (res.error.includes('bị khóa') || res.error.includes('locked')) {
                     setError('Tài khoản đã bị khóa - bạn không thể sử dụng được vui lòng liên hệ admin để mở lại');
                 } else {
                     setError("Email hoặc mật khẩu không chính xác.");
                 }
             } else {
                 router.push(callbackUrl);
-                router.refresh(); // Crucial to update navbar session state
+                router.refresh();
             }
         } catch (err) {
             setError("Đã xảy ra lỗi. Vui lòng thử lại sau.");
