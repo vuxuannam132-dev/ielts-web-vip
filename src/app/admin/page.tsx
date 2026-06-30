@@ -177,7 +177,7 @@ function UsersManager() {
         });
     }, []);
 
-    const handleUpdate = async (id: string, field: string, value: string) => {
+    const handleUpdate = async (id: string, field: string, value: string | boolean) => {
         const res = await fetch('/api/admin/users', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
