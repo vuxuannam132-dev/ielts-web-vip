@@ -41,6 +41,7 @@ export default function AdminDashboard() {
                         { id: "content", label: "Quản lý bài tập", icon: FileText },
                         { id: "payment", label: "Thanh toán & Gói", icon: Banknote },
                         { id: "bugs", label: "Báo lỗi", icon: Bug },
+                        { id: "logs", label: "Nhật ký hoạt động", icon: Activity },
                         { id: "settings", label: "Cài đặt hệ thống", icon: Settings },
                     ].map(tab => (
                         <button

@@ -15,6 +15,7 @@ export const metadata: Metadata = {
 import { WelcomeModal } from "@/components/WelcomeModal";
 import BugReportWidget from "@/components/ui/BugReportWidget";
 import VerifyPromptModal from "@/components/ui/VerifyPromptModal";
+import GlobalSessionSync from "@/components/ui/GlobalSessionSync";
 
 export default function RootLayout({
   children,
@@ -27,6 +28,7 @@ export default function RootLayout({
         <Providers>
           <WelcomeModal />
           <VerifyPromptModal />
+          <GlobalSessionSync />
           <Navbar />
           <main className="flex-1">
             {children}

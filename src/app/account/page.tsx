@@ -2,7 +2,7 @@
 
 import { useSession } from "next-auth/react";
 import { useState } from "react";
-import { Loader2, KeyRound, User as UserIcon, ShieldCheck, Zap } from "lucide-react";
+import { Loader2, KeyRound, User as UserIcon, ShieldCheck, Zap, GraduationCap, Send } from "lucide-react";
 import Link from "next/link";
 
 export default function AccountPage() {
@@ -14,6 +14,11 @@ export default function AccountPage() {
     const [confirmPassword, setConfirmPassword] = useState("");
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+
+    const [showTeacherModal, setShowTeacherModal] = useState(false);
+    const [teacherReason, setTeacherReason] = useState("");
+    const [teacherReqLoading, setTeacherReqLoading] = useState(false);
+    const [teacherReqMsg, setTeacherReqMsg] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
     if (status === "loading") {
         return <div className="min-h-[calc(100vh-4rem)] flex justify-center items-center"><Loader2 className="h-8 w-8 animate-spin text-blue-600" /></div>;
@@ -67,6 +72,31 @@ export default function AccountPage() {
         }
     };
 
+    const handleRequestTeacher = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setTeacherReqLoading(true);
+        setTeacherReqMsg(null);
+        try {
+            const res = await fetch("/api/account/request-teacher", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ reason: teacherReason }),
+            });
+            const data = await res.json();
+            if (res.ok) {
+                setTeacherReqMsg({ type: 'success', text: "Đã gửi yêu cầu thành công!" });
+                setTeacherReason("");
+                setTimeout(() => setShowTeacherModal(false), 2000);
+            } else {
+                setTeacherReqMsg({ type: 'error', text: data.error || "Đã xảy ra lỗi." });
+            }
+        } catch (err) {
+            setTeacherReqMsg({ type: 'error', text: "Lỗi kết nối máy chủ." });
+        } finally {
+            setTeacherReqLoading(false);
+        }
+    };
+
     return (
         <div className="min-h-[calc(100vh-4rem)] bg-slate-50 py-12 px-4 sm:px-6">
             <div className="max-w-4xl mx-auto space-y-8">
@@ -106,6 +136,11 @@ export default function AccountPage() {
                             <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-50 text-blue-700 font-medium">
                                 <KeyRound className="h-5 w-5" /> Đổi mật khẩu
                             </button>
+                            {(user as any).role === "USER" && (
+                                <button onClick={() => setShowTeacherModal(true)} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-50 text-slate-600 font-medium transition">
+                                    <GraduationCap className="h-5 w-5 text-violet-500" /> Xin cấp quyền Giáo viên
+                                </button>
+                            )}
                             <Link href="/dashboard" className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-50 text-slate-600 font-medium transition">
                                 <UserIcon className="h-5 w-5 text-slate-400" /> Quay lại Dashboard
                             </Link>
@@ -168,6 +203,42 @@ export default function AccountPage() {
                         </div>
                     </div>
                 </div>
+
+                {showTeacherModal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+                            <h2 className="text-xl font-bold mb-2 flex items-center gap-2"><GraduationCap className="h-5 w-5 text-violet-600" /> Xin cấp quyền Giáo viên</h2>
+                            <p className="text-sm text-slate-500 mb-4">Gửi yêu cầu tới Ban quản trị để nâng cấp tài khoản của bạn thành Giáo viên, giúp bạn tạo lớp học và giao bài tập.</p>
+                            
+                            {teacherReqMsg && (
+                                <div className={`p-3 rounded-xl mb-4 text-sm font-medium border ${teacherReqMsg.type === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-red-50 text-red-700 border-red-100'}`}>
+                                    {teacherReqMsg.text}
+                                </div>
+                            )}
+
+                            <form onSubmit={handleRequestTeacher} className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Giới thiệu bản thân / Lý do *</label>
+                                    <textarea 
+                                        required 
+                                        value={teacherReason} 
+                                        onChange={e => setTeacherReason(e.target.value)} 
+                                        placeholder="Ví dụ: Tôi là giáo viên tiếng Anh tại trung tâm..." 
+                                        rows={4} 
+                                        className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:border-violet-500 outline-none resize-none bg-slate-50 focus:bg-white transition-colors" 
+                                    />
+                                </div>
+                                <div className="flex gap-2 pt-2">
+                                    <button type="button" onClick={() => setShowTeacherModal(false)} className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-medium hover:bg-slate-50 transition-colors">Hủy</button>
+                                    <button type="submit" disabled={teacherReqLoading || !teacherReason.trim()} className="flex-1 bg-violet-600 hover:bg-violet-700 text-white font-medium py-2.5 rounded-xl transition-colors disabled:opacity-70 flex items-center justify-center gap-2">
+                                        {teacherReqLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                                        Gửi yêu cầu
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );
