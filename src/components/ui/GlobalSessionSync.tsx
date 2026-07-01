@@ -31,7 +31,7 @@ export default function GlobalSessionSync() {
           const user = session?.user as any
           if (user) {
             let needsUpdate = false;
-            let payload: any = {};
+            const payload: any = {};
 
             if (data.role && data.role !== user.role) {
               needsUpdate = true;
