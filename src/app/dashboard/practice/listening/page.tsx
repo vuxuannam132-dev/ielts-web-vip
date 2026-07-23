@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
-    Play, Pause, RotateCcw, RotateCw, BookOpen, AlertCircle, Highlighter, PenTool, Eraser
+    Play, Pause, RotateCcw, RotateCw, BookOpen, AlertCircle, Highlighter, PenTool, Eraser, ArrowLeft, Headphones, Clock, Volume2, CheckCircle2, XCircle
 } from "lucide-react";
 import Link from "next/link";
 
@@ -449,7 +449,9 @@ export default function ListeningPractice() {
                                     </div>
                                 </div>
                             ))}
+                            </div>
                         </div>
+                    </div>
                         {isSubmitted && evaluation && (
                             <div className="mt-6 bg-orange-50 border border-orange-200 rounded-xl p-5">
                                 <h4 className="font-bold text-orange-900 mb-4">📝 AI Examiner Feedback</h4>

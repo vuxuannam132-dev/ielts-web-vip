@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Users, FileText, Settings, Shield, Edit2, KeyRound, Loader2, Trash2, Banknote, LayoutDashboard, Plus, Flame, Bug, Activity, BrainCircuit } from "lucide-react";
+import { Users, FileText, Settings, Shield, Edit2, KeyRound, Loader2, Trash2, Banknote, LayoutDashboard, Plus, Flame, Bug, Activity, BrainCircuit, Save, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useToast } from "@/contexts/ToastContext";
@@ -352,9 +352,22 @@ function PaymentConfig() {
         } else {
             const err = await res.json();
             alert(err.error || 'Có lỗi xảy ra');
+        }
+    };
+
+    return (
+        <div className="space-y-6">
+            <div className="flex justify-between items-center">
+                <div>
+                    <h2 className="text-2xl font-bold">Quản lý Gói (Packages)</h2>
+                    <p className="text-slate-500">Cấu hình các gói thành viên hiển thị trên website.</p>
+                </div>
+                {!editingPkg && (
+                    <button onClick={() => setEditingPkg({})} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700">
+                        <Plus className="h-4 w-4" /> Thêm Gói Mới
+                    </button>
                 )}
             </div>
-
             {editingPkg ? (
                 <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-4">
                     <div className="flex justify-between items-center mb-4">
