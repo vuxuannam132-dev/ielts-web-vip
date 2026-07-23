@@ -7,10 +7,11 @@ import Link from "next/link";
 
 interface Question {
     id: number;
-    type: "fill" | "mcq" | "tf";
+    type: "fill" | "mcq" | "tf" | "multi-mcq" | "matching";
     text: string;
     options?: string[];
-    answer: string;
+    answer?: string;
+    answers?: string[];
     hint?: string;
 }
 
@@ -26,7 +27,7 @@ export default function ReadingPractice() {
     const [selected, setSelected] = useState<PracticeSet | null>(null);
     const [parsed, setParsed] = useState<any>(null);
     const [loading, setLoading] = useState(true);
-    const [answers, setAnswers] = useState<Record<string, string>>({});
+    const [answers, setAnswers] = useState<Record<string, any>>({});
     const [submitted, setSubmitted] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [evaluation, setEvaluation] = useState<any>(null);
@@ -54,7 +55,16 @@ export default function ReadingPractice() {
 
     const formatTime = (s: number) => `${Math.floor(s / 60).toString().padStart(2, "0")}:${(s % 60).toString().padStart(2, "0")}`;
     const getAnswer = (qId: number) => answers[`${selected?.id}-${qId}`] || "";
+    const getMultiAnswer = (qId: number): string[] => answers[`${selected?.id}-${qId}`] || [];
     const handleAnswer = (qId: number, val: string) => { if (!submitted) setAnswers(p => ({ ...p, [`${selected?.id}-${qId}`]: val })); };
+    const handleMultiAnswer = (qId: number, val: string) => {
+        if (submitted) return;
+        setAnswers(p => {
+            const current = (p[`${selected?.id}-${qId}`] || []) as string[];
+            if (current.includes(val)) return { ...p, [`${selected?.id}-${qId}`]: current.filter(x => x !== val) };
+            return { ...p, [`${selected?.id}-${qId}`]: [...current, val] };
+        });
+    };
     const passages: any[] = parsed?.passages || (parsed?.passage ? [{ title: parsed.title, text: parsed.passage, questions: parsed.questions || [] }] : []);
     const allQuestions: Question[] = passages.flatMap((p: any) => p.questions || []);
 
@@ -63,13 +73,13 @@ export default function ReadingPractice() {
 
     const handleSubmit = async () => {
         setSubmitting(true); setTimerRunning(false);
-        const formattedAnswers: Record<number, string> = {};
-        allQuestions.forEach(q => { formattedAnswers[q.id] = getAnswer(q.id); });
+        const formattedAnswers: Record<number, any> = {};
+        allQuestions.forEach(q => { formattedAnswers[q.id] = q.type === "multi-mcq" ? getMultiAnswer(q.id) : getAnswer(q.id); });
         try {
             const res = await fetch("/api/ai/reading", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ practiceSetId: selected?.id, questions: allQuestions.map(q => ({ id: q.id, text: q.text, answerKey: q.answer, type: q.type })), userAnswers: formattedAnswers })
+                body: JSON.stringify({ practiceSetId: selected?.id, questions: allQuestions.map(q => ({ id: q.id, text: q.text, answerKey: q.type === "multi-mcq" ? q.answers : q.answer, type: q.type })), userAnswers: formattedAnswers })
             });
             const data = await res.json();
             if (data.success) { setEvaluation(data.evaluation); setSubmitted(true); }
@@ -152,10 +162,24 @@ export default function ReadingPractice() {
                                         ))}
                                     </div>
                                 )}
+                                {q.type === "multi-mcq" && q.options?.map((opt, i) => (
+                                    <label key={i} className="flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-white/50">
+                                        <input type="checkbox" checked={getMultiAnswer(q.id).includes(opt)} onChange={() => handleMultiAnswer(q.id, opt)} disabled={submitted} className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4" />
+                                        <span className="text-sm">{String.fromCharCode(65 + i)}. {opt}</span>
+                                    </label>
+                                ))}
+                                {q.type === "matching" && (
+                                    <select value={getAnswer(q.id)} onChange={e => handleAnswer(q.id, e.target.value)} disabled={submitted} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none mt-2">
+                                        <option value="">-- Chọn đáp án --</option>
+                                        {q.options?.map((opt, i) => (
+                                            <option key={i} value={opt}>{opt}</option>
+                                        ))}
+                                    </select>
+                                )}
                                 {submitted && (
                                     isCorrect(q.id)
                                         ? <div className="mt-1 text-xs text-emerald-600 flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> Đúng</div>
-                                        : <div className="mt-1 text-xs text-red-600 flex items-center gap-1"><XCircle className="h-3 w-3" /> Sai — Đáp án: <strong>{q.answer}</strong></div>
+                                        : <div className="mt-1 text-xs text-red-600 flex items-center gap-1"><XCircle className="h-3 w-3" /> Sai — Đáp án: <strong>{q.type === "multi-mcq" && q.answers ? q.answers.join(", ") : q.answer}</strong></div>
                                 )}
                             </div>
                         ))}

@@ -12,7 +12,7 @@ export interface ReadingQuestion {
 
 export interface ReadingSubmission {
     questions: ReadingQuestion[];
-    userAnswers: Record<number, string>;
+    userAnswers: Record<number, string | string[]>;
 }
 
 export interface ReadingEvaluation {
@@ -22,8 +22,8 @@ export interface ReadingEvaluation {
     bandScore: number;
     wrongAnswers: {
         questionId: number;
-        userAnswer: string;
-        correctAnswer: string;
+        userAnswer: string | string[];
+        correctAnswer: string | string[];
         reason: string;
     }[];
     feedback: string;
@@ -56,6 +56,11 @@ Strict marking rules:
 - If a required phrase is incomplete, mark it wrong.
 - If the candidate gives multiple answers where only one is allowed, mark it wrong unless rules explicitly allow it.
 - When uncertain, choose the lower and stricter judgment.
+
+Special rule for 'multi-mcq' (Multiple Choice - Multiple Answers):
+- The answerKey will be an array of correct answers, and userAnswer will be an array of user's selected answers.
+- Award partial scoring: If the user selects some correct answers but misses others, or selects some wrong ones, evaluate based on the proportion of correct vs wrong. Give 0.5 points or full points accordingly. (e.g. 1 out of 2 correct = 0.5 rawScore).
+- In the JSON output, for 'wrongAnswers', if there are missing or wrong selections in multi-mcq, include it and explain the missing/wrong choices clearly.
 
 Band conversion policy:
 - Count the exact number of correct answers first.
@@ -91,9 +96,9 @@ Return a JSON object with EXACTLY this structure:
   "wrongAnswers": [
     {
        "questionId": number,
-       "userAnswer": "The candidate's wrong input",
-       "correctAnswer": "The accepted answer according to the key",
-       "reason": "Harsh explanation in VIETNAMESE (HTML-encoded styling) of why it is wrong"
+       "userAnswer": "The candidate's wrong input (string or array)",
+       "correctAnswer": "The accepted answer according to the key (string or array)",
+       "reason": "Harsh explanation in VIETNAMESE (HTML-encoded styling) of why it is wrong. For multi-mcq, explain which options are wrong/missing."
     }
   ],
   "feedback": "Strict summary feedback in VIETNAMESE (HTML-encoded styling) about their reading performance. Make it look professional."

@@ -10,10 +10,11 @@ import Link from "next/link";
 
 interface Question {
     id: number;
-    type: "fill" | "mcq" | "tf";
+    type: "fill" | "mcq" | "tf" | "multi-mcq" | "matching";
     text: string;
     options?: string[];
-    answer: string;
+    answer?: string;
+    answers?: string[];
     hint?: string;
 }
 
@@ -29,7 +30,7 @@ export default function ListeningPractice() {
     const [selectedSet, setSelectedSet] = useState<PracticeSet | null>(null);
     const [parsedContent, setParsedContent] = useState<any>(null);
     const [loading, setLoading] = useState(true);
-    const [answers, setAnswers] = useState<Record<string, string>>({});
+    const [answers, setAnswers] = useState<Record<string, any>>({});
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [evaluation, setEvaluation] = useState<any>(null);
@@ -94,9 +95,18 @@ export default function ListeningPractice() {
         : parsedContent?.questions || [];
 
     const getAnswer = (qId: number) => answers[`${selectedSet?.id}-${qId}`] || "";
+    const getMultiAnswer = (qId: number): string[] => answers[`${selectedSet?.id}-${qId}`] || [];
     const handleAnswer = (qId: number, val: string) => {
         if (isSubmitted || isSubmitting) return;
         setAnswers(prev => ({ ...prev, [`${selectedSet?.id}-${qId}`]: val }));
+    };
+    const handleMultiAnswer = (qId: number, val: string) => {
+        if (isSubmitted || isSubmitting) return;
+        setAnswers(p => {
+            const current = (p[`${selectedSet?.id}-${qId}`] || []) as string[];
+            if (current.includes(val)) return { ...p, [`${selectedSet?.id}-${qId}`]: current.filter(x => x !== val) };
+            return { ...p, [`${selectedSet?.id}-${qId}`]: [...current, val] };
+        });
     };
 
     const getWrongAnswer = (qId: number) => evaluation?.wrongAnswers?.find((w: any) => w.questionId === qId);
@@ -108,8 +118,8 @@ export default function ListeningPractice() {
         setIsPlaying(false);
         if (audioRef.current) audioRef.current.pause();
 
-        const formattedAnswers: Record<number, string> = {};
-        allQuestions.forEach(q => { formattedAnswers[q.id] = getAnswer(q.id); });
+        const formattedAnswers: Record<number, any> = {};
+        allQuestions.forEach(q => { formattedAnswers[q.id] = q.type === "multi-mcq" ? getMultiAnswer(q.id) : getAnswer(q.id); });
 
         try {
             const res = await fetch("/api/ai/listening", {
@@ -117,7 +127,7 @@ export default function ListeningPractice() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     practiceSetId: selectedSet?.id,
-                    questions: allQuestions.map(q => ({ id: q.id, text: q.text, answerKey: q.answer, type: q.type })),
+                    questions: allQuestions.map(q => ({ id: q.id, text: q.text, answerKey: q.type === "multi-mcq" ? q.answers : q.answer, type: q.type })),
                     userAnswers: formattedAnswers
                 })
             });
@@ -155,6 +165,7 @@ export default function ListeningPractice() {
     }
 
     const audioUrl = parsedContent?.audioUrl || "";
+    const mapImages = parsedContent?.parts?.map((p: any) => p.mapImage).filter(Boolean) || [];
 
     return (
         <div className="min-h-[calc(100vh-4rem)] bg-gradient-to-b from-slate-50 to-orange-50/20">
@@ -254,6 +265,15 @@ export default function ListeningPractice() {
                             <div className="bg-orange-100 text-orange-700 px-3 py-1 rounded-lg text-sm font-bold">Questions 1–{allQuestions.length}</div>
                             <span className="text-sm text-slate-500">Hoàn thành các câu hỏi bên dưới</span>
                         </div>
+                        {mapImages.length > 0 && (
+                            <div className="mb-6 space-y-4">
+                                {mapImages.map((img: string, i: number) => (
+                                    <div key={i} className="rounded-xl border border-slate-200 overflow-hidden bg-slate-50 p-2">
+                                        <img src={img} alt="Map Labeling" className="w-full max-w-2xl mx-auto rounded-lg object-contain" />
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                         <div className="space-y-5">
                             {allQuestions.map((q, idx) => (
                                 <div key={q.id} className={`p-4 rounded-lg border ${isSubmitted ? (isCorrect(q.id) ? "bg-emerald-50 border-emerald-200" : "bg-red-50 border-red-200") : "bg-slate-50 border-slate-200"}`}>
@@ -288,13 +308,31 @@ export default function ListeningPractice() {
                                                     ))}
                                                 </div>
                                             )}
+                                            {q.type === "multi-mcq" && q.options && (
+                                                <div className="space-y-2 mt-2">
+                                                    {q.options.map((opt, i) => (
+                                                        <label key={i} className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer hover:bg-white/50 ${getMultiAnswer(q.id).includes(opt) ? "bg-orange-50 ring-1 ring-orange-200" : ""}`}>
+                                                            <input type="checkbox" checked={getMultiAnswer(q.id).includes(opt)} onChange={() => handleMultiAnswer(q.id, opt)} disabled={isSubmitted} className="h-4 w-4 text-orange-600 rounded" />
+                                                            <span className="text-sm">{String.fromCharCode(65 + i)}. {opt}</span>
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                            )}
+                                            {q.type === "matching" && q.options && (
+                                                <select value={getAnswer(q.id)} onChange={e => handleAnswer(q.id, e.target.value)} disabled={isSubmitted} className="w-full max-w-xs border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500 outline-none mt-2">
+                                                    <option value="">-- Chọn đáp án --</option>
+                                                    {q.options.map((opt, i) => (
+                                                        <option key={i} value={opt}>{opt}</option>
+                                                    ))}
+                                                </select>
+                                            )}
                                             {isSubmitted && (
                                                 <div className="mt-2 text-sm">
                                                     {isCorrect(q.id) ? (
                                                         <div className="text-emerald-600 flex items-center gap-1 bg-emerald-50 px-3 py-2 rounded border border-emerald-100"><CheckCircle2 className="h-4 w-4" /> Chính xác</div>
                                                     ) : (
                                                         <div className="text-red-700 flex flex-col gap-2 bg-red-50 p-4 rounded-xl border border-red-100">
-                                                            <div className="flex items-center gap-1 font-semibold"><XCircle className="h-4 w-4" /> Sai. Đáp án đúng: {q.answer}</div>
+                                                            <div className="flex items-center gap-1 font-semibold"><XCircle className="h-4 w-4" /> Sai. Đáp án đúng: {q.type === 'multi-mcq' && q.answers ? q.answers.join(", ") : q.answer}</div>
                                                             {getWrongAnswer(q.id)?.reason && (
                                                                 <div className="text-sm text-red-800 bg-white/60 p-3 rounded-lg border border-red-100/50">
                                                                     <strong className="text-slate-800 block mb-1">💡 Lý do:</strong>

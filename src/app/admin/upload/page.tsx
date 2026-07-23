@@ -6,14 +6,16 @@ import Link from "next/link";
 
 interface Question {
     text: string;
-    type: "fill" | "mcq" | "tf";
+    type: "fill" | "mcq" | "tf" | "multi-mcq" | "matching";
     answer: string;
     options: string[];
+    answers?: string[]; // For multi-mcq
 }
 
 interface Part {
     title: string;
     text: string;
+    mapImage?: string;
     questions: Question[];
 }
 
@@ -57,7 +59,7 @@ export default function AdminPracticeUpload() {
         setParts(newParts);
     };
 
-    const updatePart = (pIdx: number, field: "title" | "text", val: string) => {
+    const updatePart = (pIdx: number, field: "title" | "text" | "mapImage", val: string) => {
         const newParts = [...parts];
         newParts[pIdx][field] = val;
         setParts(newParts);
@@ -244,6 +246,12 @@ export default function AdminPracticeUpload() {
                                         <textarea value={part.text} onChange={e => updatePart(pIdx, "text", e.target.value)} rows={6} className="w-full border border-slate-300 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500 resize-none" placeholder="Dán nội dung bài đọc vào đây..." />
                                     </div>
                                 )}
+                                {skill === "listening" && (
+                                    <div>
+                                        <label className="block text-sm font-bold text-slate-700 mb-2">Link Ảnh Bản Đồ (Tuỳ chọn cho dạng Map Labeling)</label>
+                                        <input value={part.mapImage || ""} onChange={e => updatePart(pIdx, "mapImage", e.target.value)} className="w-full border border-slate-300 rounded-xl px-4 py-2 text-sm outline-none focus:border-blue-500" placeholder="https://imgur.com/map..." />
+                                    </div>
+                                )}
 
                                 <div className="pt-4 border-t border-slate-100">
                                     <div className="flex items-center justify-between xl mb-4">
@@ -266,20 +274,36 @@ export default function AdminPracticeUpload() {
                                                     <div className="flex gap-4 items-center">
                                                         <select value={q.type} onChange={e => updateQuestion(pIdx, qIdx, "type", e.target.value)}
                                                             className="border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none font-medium">
-                                                            <option value="fill">Điền từ (Fill in the blank)</option>
+                                                            <option value="fill">Điền từ (Fill)</option>
                                                             <option value="mcq">Trắc nghiệm (A,B,C,D)</option>
+                                                            <option value="multi-mcq">Trắc nghiệm nhiều đáp án (Multi-MCQ)</option>
                                                             <option value="tf">True/False/Not Given</option>
+                                                            <option value="matching">Nối đáp án (Matching)</option>
                                                         </select>
-                                                        <input type="text" value={q.answer} onChange={e => updateQuestion(pIdx, qIdx, "answer", e.target.value)}
-                                                            className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none font-bold text-blue-700" placeholder="Đáp án ĐÚNG" />
+                                                        <input type="text" value={q.type === 'multi-mcq' && q.answers ? q.answers.join(",") : q.answer} 
+                                                            onChange={e => {
+                                                                if (q.type === 'multi-mcq') {
+                                                                    updateQuestion(pIdx, qIdx, "answers", e.target.value.split(",").map(s => s.trim()));
+                                                                } else {
+                                                                    updateQuestion(pIdx, qIdx, "answer", e.target.value);
+                                                                }
+                                                            }}
+                                                            className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none font-bold text-blue-700" 
+                                                            placeholder={q.type === 'multi-mcq' ? "Đáp án ĐÚNG (cách nhau dấu phẩy)" : "Đáp án ĐÚNG"} 
+                                                        />
                                                     </div>
 
-                                                    {q.type === "mcq" && (
+                                                    {(q.type === "mcq" || q.type === "multi-mcq" || q.type === "matching") && (
                                                         <div className="grid grid-cols-2 gap-2 mt-2">
                                                             {q.options.map((opt, optIdx) => (
                                                                 <input key={optIdx} type="text" value={opt} onChange={(e) => updateOption(pIdx, qIdx, optIdx, e.target.value)}
-                                                                    className="border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none" placeholder={`Lựa chọn ${String.fromCharCode(65 + optIdx)}`} />
+                                                                    className="border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none" placeholder={`Lựa chọn ${optIdx + 1}`} />
                                                             ))}
+                                                            <button onClick={() => {
+                                                                const newParts = [...parts];
+                                                                newParts[pIdx].questions[qIdx].options.push("");
+                                                                setParts(newParts);
+                                                            }} className="text-xs text-blue-600 font-semibold hover:underline">Thêm lựa chọn</button>
                                                         </div>
                                                     )}
                                                 </div>
