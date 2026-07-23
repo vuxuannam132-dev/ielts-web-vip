@@ -14,10 +14,19 @@ function JoinClassModal({ onClose }: { onClose: () => void }) {
     const handleJoin = async () => {
         if (!code.trim()) return;
         setLoading(true); setResult(null);
-        const res = await fetch("/api/teacher/join", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ inviteCode: code.trim().toUpperCase() }) });
-        const data = await res.json();
-        setResult({ ok: res.ok, msg: res.ok ? `✅ Đã gửi yêu cầu vào lớp "${data.className}"! Đợi giáo viên duyệt.` : `❌ ${data.error}` });
-        setLoading(false);
+        try {
+            const res = await fetch("/api/teacher/join", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ inviteCode: code.trim().toUpperCase() }) });
+            const data = await res.json();
+            if (res.ok) {
+                setResult({ ok: true, msg: `✅ Đã gửi yêu cầu tham gia lớp "${data.className}". Vui lòng chờ giáo viên duyệt!` });
+            } else {
+                setResult({ ok: false, msg: `❌ ${data.error || "Lỗi không xác định"}` });
+            }
+        } catch (e) {
+            setResult({ ok: false, msg: `❌ Lỗi kết nối đến máy chủ.` });
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -28,14 +37,19 @@ function JoinClassModal({ onClose }: { onClose: () => void }) {
                     <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg"><X className="h-4 w-4 text-slate-400" /></button>
                 </div>
                 <p className="text-sm text-slate-500 mb-4">Nhập mã mời từ giáo viên của bạn.</p>
-                <input autoFocus value={code} onChange={e => setCode(e.target.value.toUpperCase())} onKeyDown={e => e.key === "Enter" && handleJoin()}
+                <input autoFocus value={code} onChange={e => setCode(e.target.value.toUpperCase())} 
+                    onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); handleJoin(); } }}
                     placeholder="Mã mời (VD: AB3X9Z)" maxLength={10}
                     className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-lg font-mono font-bold tracking-widest text-center focus:border-blue-500 outline-none mb-3" />
-                {result && <p className={`text-sm mb-3 ${result.ok ? "text-emerald-600" : "text-red-500"}`}>{result.msg}</p>}
+                {result && (
+                    <div className={`p-3 rounded-xl mb-4 text-sm font-medium ${result.ok ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
+                        {result.msg}
+                    </div>
+                )}
                 <div className="flex gap-2">
                     <button onClick={onClose} className="flex-1 px-4 py-2.5 rounded-xl border-2 border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">Đóng</button>
-                    <button onClick={handleJoin} disabled={loading || !code.trim()} className="flex-1 px-4 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2">
-                        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Tham gia"}
+                    <button onClick={handleJoin} disabled={loading || !code.trim() || (result?.ok ?? false)} className="flex-1 px-4 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2">
+                        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : (result?.ok ? "Đã gửi" : "Tham gia")}
                     </button>
                 </div>
             </div>

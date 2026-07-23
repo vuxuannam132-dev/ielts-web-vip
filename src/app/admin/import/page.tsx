@@ -18,6 +18,7 @@ export default function AdminPracticeImport() {
     const [drafts, setDrafts] = useState<DraftPracticeSet[]>([]);
     const [isDragging, setIsDragging] = useState(false);
     const [globalUploading, setGlobalUploading] = useState(false);
+    const [previewDraft, setPreviewDraft] = useState<DraftPracticeSet | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const autoDetectSkill = (content: any): string => {
@@ -248,6 +249,13 @@ export default function AdminPracticeImport() {
                                                     </span>
                                                 )}
                                                 <button 
+                                                    onClick={() => setPreviewDraft(draft)}
+                                                    className="bg-slate-100 text-slate-700 hover:bg-slate-200 px-4 py-2 rounded-lg text-sm font-semibold transition"
+                                                    title="Xem trước chi tiết"
+                                                >
+                                                    Xem chi tiết
+                                                </button>
+                                                <button 
                                                     onClick={() => uploadSingle(draft)}
                                                     className="bg-slate-900 text-white hover:bg-slate-800 px-4 py-2 rounded-lg text-sm font-semibold transition"
                                                 >
@@ -269,6 +277,32 @@ export default function AdminPracticeImport() {
                     </div>
                 )}
             </div>
+
+            {/* Preview Modal */}
+            {previewDraft && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+                        <div className="flex items-center justify-between p-4 border-b border-slate-200">
+                            <h2 className="text-xl font-bold flex items-center gap-2">
+                                Xem chi tiết: {previewDraft.title}
+                            </h2>
+                            <button onClick={() => setPreviewDraft(null)} className="p-2 hover:bg-slate-100 rounded-lg">
+                                <X className="h-5 w-5 text-slate-500" />
+                            </button>
+                        </div>
+                        <div className="p-4 flex-1 overflow-y-auto bg-slate-50">
+                            <pre className="text-sm text-slate-800 whitespace-pre-wrap font-mono bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                                {JSON.stringify(previewDraft.contentJSON, null, 2)}
+                            </pre>
+                        </div>
+                        <div className="p-4 border-t border-slate-200 flex justify-end">
+                            <button onClick={() => setPreviewDraft(null)} className="px-6 py-2 bg-slate-900 text-white rounded-xl font-semibold hover:bg-slate-800">
+                                Đóng
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

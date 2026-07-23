@@ -209,6 +209,7 @@ export default function TeacherDashboard() {
                                 <div className="flex gap-2">
                                     <button onClick={() => setTab("students")} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${tab === "students" ? "bg-blue-600 text-white" : "bg-white border border-slate-200 text-slate-600 hover:border-blue-200"}`}>
                                         <Users className="h-4 w-4" /> Học sinh
+                                        {pending.length > 0 && <span className="bg-red-500 text-white px-2 py-0.5 rounded-full text-[10px] animate-pulse">{pending.length}</span>}
                                     </button>
                                     <button onClick={() => setTab("assignments")} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${tab === "assignments" ? "bg-blue-600 text-white" : "bg-white border border-slate-200 text-slate-600 hover:border-blue-200"}`}>
                                         <ClipboardList className="h-4 w-4" /> Bài tập ({assignments.length})

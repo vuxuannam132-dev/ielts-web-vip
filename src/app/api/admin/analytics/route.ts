@@ -31,7 +31,9 @@ export async function GET(req: NextRequest) {
             }
         });
 
-        return NextResponse.json({ totalUsers, vipUsers, totalSubmissions, activeUsersCount, topUsers });
+        const aiTokensUsed = totalSubmissions * 1250 + 45000; // Mock calculation based on submissions + baseline
+
+        return NextResponse.json({ totalUsers, vipUsers, totalSubmissions, activeUsersCount, topUsers, aiTokensUsed });
     } catch (e) {
         return NextResponse.json({ error: "Failed to fetch analytics" }, { status: 500 });
     }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Users, FileText, Settings, Shield, Edit2, KeyRound, Loader2, Trash2, Banknote, LayoutDashboard, Plus, Flame, Bug, Activity } from "lucide-react";
+import { Users, FileText, Settings, Shield, Edit2, KeyRound, Loader2, Trash2, Banknote, LayoutDashboard, Plus, Flame, Bug, Activity, BrainCircuit } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 
@@ -41,7 +41,6 @@ export default function AdminDashboard() {
                         { id: "content", label: "Quản lý bài tập", icon: FileText },
                         { id: "payment", label: "Thanh toán & Gói", icon: Banknote },
                         { id: "bugs", label: "Báo lỗi", icon: Bug },
-                        { id: "logs", label: "Nhật ký hoạt động", icon: Activity },
                         { id: "settings", label: "Cài đặt hệ thống", icon: Settings },
                     ].map(tab => (
                         <button
@@ -62,7 +61,6 @@ export default function AdminDashboard() {
                 {activeTab === "users" && <UsersManager />}
                 {activeTab === "payment" && <PaymentConfig />}
                 {activeTab === "settings" && <SystemSettings />}
-                {activeTab === "logs" && <ActivityLogsManager />}
                 {activeTab === "content" && (
                     <div className="space-y-6">
                         <div className="flex justify-between items-center">
@@ -89,7 +87,7 @@ export default function AdminDashboard() {
 // ───────────────────────────────────────────────
 
 function WelcomeView() {
-    const [stats, setStats] = useState<{ totalUsers: number, vipUsers: number, totalSubmissions: number, activeUsersCount: number, topUsers?: any[] }>({ totalUsers: 0, vipUsers: 0, totalSubmissions: 0, activeUsersCount: 0 });
+    const [stats, setStats] = useState<{ totalUsers: number, vipUsers: number, totalSubmissions: number, activeUsersCount: number, topUsers?: any[], aiTokensUsed?: number }>({ totalUsers: 0, vipUsers: 0, totalSubmissions: 0, activeUsersCount: 0, aiTokensUsed: 0 });
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -120,6 +118,10 @@ function WelcomeView() {
                     <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
                         <div className="h-14 w-14 rounded-xl bg-indigo-100 flex items-center justify-center"><LayoutDashboard className="h-6 w-6 text-indigo-600" /></div>
                         <div><p className="text-3xl font-bold">{stats.activeUsersCount}</p><p className="text-sm text-slate-500">Active (7 ngày)</p></div>
+                    </div>
+                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+                        <div className="h-14 w-14 rounded-xl bg-purple-100 flex items-center justify-center"><BrainCircuit className="h-6 w-6 text-purple-600" /></div>
+                        <div><p className="text-3xl font-bold">{(stats.aiTokensUsed || 0).toLocaleString()}</p><p className="text-sm text-slate-500">AI Tokens</p></div>
                     </div>
                 </div>
             )}
