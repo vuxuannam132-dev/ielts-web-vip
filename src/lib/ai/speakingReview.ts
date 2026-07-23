@@ -26,6 +26,12 @@ export interface SpeakingEvaluation {
         phonetic: string;
         error: string;
     }[];
+    vocabularyUpgrades: {
+        originalWord: string;
+        advancedWord: string;
+        meaning: string;
+        example: string;
+    }[];
 }
 
 export const evaluateSpeaking = async (
@@ -114,7 +120,15 @@ Return a JSON object with EXACTLY this structure:
     {
       "word": "The mispronounced word",
       "phonetic": "The correct IPA phonetic transcription (e.g. /riˈteɪl/)",
-      "error": "Explanation of what went wrong in Vietnamese (e.g. 'Phát âm sai âm cuối...')"
+      "error": "Phân tích âm vị sai bằng tiếng Việt (e.g. 'Bạn đã phát âm sai âm cuối /l/ thành /n/...')"
+    }
+  ],
+  "vocabularyUpgrades": [
+    {
+      "originalWord": "Từ cơ bản/sai ngữ cảnh user đã dùng",
+      "advancedWord": "Từ/cụm từ học thuật (Band 7.0+) thay thế",
+      "meaning": "Nghĩa tiếng Việt",
+      "example": "Ví dụ mẫu sử dụng từ mới này trong đúng ngữ cảnh của user"
     }
   ]
 }`;

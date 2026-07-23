@@ -19,6 +19,17 @@ interface AIFeedback {
     vocabularyScore: number;
     grammarScore: number;
     feedback: string;
+    inlineCorrections?: {
+        originalText: string;
+        improvedText: string;
+        type: string;
+        explanation: string;
+    }[];
+    ideaExpansion?: {
+        paragraph: string;
+        weakPoint: string;
+        suggestion: string;
+    }[];
     improvements?: string[];
 }
 
@@ -204,6 +215,47 @@ export default function WritingPractice() {
                                     ))}
                                 </div>
                                 <div className="bg-slate-50 rounded-lg p-4 text-sm text-slate-700 leading-relaxed" dangerouslySetInnerHTML={{ __html: feedback.feedback }} />
+
+                                {feedback.inlineCorrections && feedback.inlineCorrections.length > 0 && (
+                                    <div className="mt-6 border-t border-slate-200 pt-5">
+                                        <h4 className="font-bold text-slate-800 mb-4">✍️ Chữa lỗi chi tiết (Inline Corrections)</h4>
+                                        <div className="space-y-4">
+                                            {feedback.inlineCorrections.map((corr, idx) => (
+                                                <div key={idx} className="bg-white border border-slate-200 rounded-lg p-4 shadow-sm">
+                                                    <div className="flex items-start gap-2 mb-2">
+                                                        <span className="text-xs font-bold px-2 py-1 bg-red-100 text-red-700 rounded mt-0.5 whitespace-nowrap">Lỗi</span>
+                                                        <span className="text-sm line-through text-slate-500">{corr.originalText}</span>
+                                                    </div>
+                                                    <div className="flex items-start gap-2 mb-3">
+                                                        <span className="text-xs font-bold px-2 py-1 bg-emerald-100 text-emerald-700 rounded mt-0.5 whitespace-nowrap">Sửa thành</span>
+                                                        <span className="text-sm font-semibold text-emerald-800">{corr.improvedText}</span>
+                                                    </div>
+                                                    <div className="text-sm text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-100">
+                                                        <strong className="text-purple-600">{corr.type}:</strong> {corr.explanation}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {feedback.ideaExpansion && feedback.ideaExpansion.length > 0 && (
+                                    <div className="mt-6 border-t border-slate-200 pt-5">
+                                        <h4 className="font-bold text-slate-800 mb-4">💡 Gợi ý Mở rộng Ý tưởng (Idea Expansion)</h4>
+                                        <div className="space-y-4">
+                                            {feedback.ideaExpansion.map((exp, idx) => (
+                                                <div key={idx} className="bg-blue-50 border border-blue-100 rounded-lg p-4 shadow-sm">
+                                                    <div className="text-sm font-bold text-blue-900 mb-2">{exp.paragraph}</div>
+                                                    <div className="text-sm text-blue-800 mb-3"><span className="font-semibold text-amber-600">Điểm yếu:</span> {exp.weakPoint}</div>
+                                                    <div className="text-sm text-blue-900 bg-white p-3 rounded shadow-sm border border-blue-100/50">
+                                                        <span className="font-semibold text-emerald-600 block mb-1">Gợi ý nâng cấp:</span> 
+                                                        {exp.suggestion}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Mic, Square, Play, Pause, UploadCloud, AlertCircle, ArrowLeft, MessageCircle, Loader2, BookOpen } from "lucide-react";
+import { Mic, Square, Play, Pause, UploadCloud, AlertCircle, ArrowLeft, MessageCircle, Loader2, BookOpen, Volume2, ArrowRight } from "lucide-react";
 import Link from "next/link";
 
 interface PracticeSet {
@@ -41,6 +41,15 @@ export default function SpeakingPractice() {
         try { setParsed(JSON.parse(selected.content || "{}")); } catch { setParsed({}); }
         setEvaluation(null); setAudioUrl(null); setCurrentQuestion(0);
     }, [selected]);
+
+    const playAudio = (text: string) => {
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'en-US';
+            window.speechSynthesis.speak(utterance);
+        }
+    };
 
     const getQuestions = () => {
         if (!parsed) return [];
@@ -219,7 +228,7 @@ export default function SpeakingPractice() {
                                             {[
                                                 { label: "Fluency", score: evaluation.fluencyScore },
                                                 { label: "Pronunciation", score: evaluation.pronunciationScore },
-                                                { label: "Lexical Resource", score: evaluation.vocabularyScore },
+                                                { label: "Lexical Resource", score: evaluation.lexicalResourceScore },
                                                 { label: "Grammar", score: evaluation.grammarScore },
                                             ].map(item => item.score != null && (
                                                 <div key={item.label} className="bg-slate-50 rounded-lg p-3">
@@ -230,7 +239,56 @@ export default function SpeakingPractice() {
                                             ))}
                                         </div>
                                         <div className="bg-slate-50 rounded-lg p-4 text-sm text-slate-700 leading-relaxed" dangerouslySetInnerHTML={{ __html: evaluation.feedback }} />
-                                        <Button variant="outline" className="w-full" onClick={() => { setAudioUrl(null); setEvaluation(null); setRecordedChunks([]); }}>Ghi âm lại</Button>
+
+                                        {evaluation.pronunciationErrors && evaluation.pronunciationErrors.length > 0 && (
+                                            <div className="mt-6 border-t border-slate-200 pt-5">
+                                                <h4 className="font-bold text-slate-800 mb-4">🗣️ Phân Tích Phát Âm (Phoneme-level)</h4>
+                                                <div className="space-y-3">
+                                                    {evaluation.pronunciationErrors.map((err: any, idx: number) => (
+                                                        <div key={idx} className="bg-rose-50 border border-rose-100 rounded-lg p-4 flex items-start justify-between shadow-sm">
+                                                            <div>
+                                                                <div className="flex items-center gap-2 mb-1">
+                                                                    <span className="font-bold text-rose-700 text-lg">{err.word}</span>
+                                                                    <span className="text-sm font-mono text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200">{err.phonetic}</span>
+                                                                </div>
+                                                                <p className="text-sm text-rose-800 mt-2">{err.error}</p>
+                                                            </div>
+                                                            <button onClick={() => playAudio(err.word)} className="p-2 bg-white rounded-full text-rose-600 hover:bg-rose-100 shadow-sm border border-rose-200 transition active:scale-95" title="Nghe mẫu chuẩn">
+                                                                <Volume2 className="h-5 w-5" />
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {evaluation.vocabularyUpgrades && evaluation.vocabularyUpgrades.length > 0 && (
+                                            <div className="mt-6 border-t border-slate-200 pt-5">
+                                                <h4 className="font-bold text-slate-800 mb-4">📇 Flashcard Từ Vựng Nâng Cao</h4>
+                                                <div className="grid sm:grid-cols-2 gap-4">
+                                                    {evaluation.vocabularyUpgrades.map((vocab: any, idx: number) => (
+                                                        <div key={idx} className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 shadow-sm flex flex-col relative group hover:shadow-md transition">
+                                                            <div className="absolute top-2 right-2">
+                                                                <button onClick={() => playAudio(vocab.advancedWord)} className="p-1.5 text-indigo-400 hover:text-indigo-700 hover:bg-indigo-100 rounded-full transition active:scale-95">
+                                                                    <Volume2 className="h-4 w-4" />
+                                                                </button>
+                                                            </div>
+                                                            <div className="flex items-center gap-2 mb-2 pr-8">
+                                                                <span className="text-xs line-through text-slate-500">{vocab.originalWord}</span>
+                                                                <ArrowRight className="h-3 w-3 text-indigo-300" />
+                                                                <span className="text-lg font-bold text-indigo-700">{vocab.advancedWord}</span>
+                                                            </div>
+                                                            <div className="text-sm font-medium text-indigo-900 mb-3">{vocab.meaning}</div>
+                                                            <div className="mt-auto text-sm text-indigo-800 bg-white p-3 rounded-lg italic border border-indigo-100/50">
+                                                                "{vocab.example}"
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        <Button variant="outline" className="w-full mt-4" onClick={() => { setAudioUrl(null); setEvaluation(null); setRecordedChunks([]); }}>Ghi âm lại</Button>
                                     </div>
                                 )}
                             </>

@@ -10,6 +10,19 @@ export interface WritingSubmission {
     userText: string;
 }
 
+export interface InlineCorrection {
+    originalText: string;
+    improvedText: string;
+    type: string;
+    explanation: string;
+}
+
+export interface IdeaExpansion {
+    paragraph: string;
+    weakPoint: string;
+    suggestion: string;
+}
+
 export interface WritingEvaluation {
     bandScore: number;
     taskAchievementScore: number;
@@ -17,7 +30,9 @@ export interface WritingEvaluation {
     vocabularyScore: number;
     grammarScore: number;
     feedback: string;
-    improvements: string[];
+    inlineCorrections: InlineCorrection[];
+    ideaExpansion: IdeaExpansion[];
+    improvements?: string[];
 }
 
 export const evaluateWriting = async (
@@ -56,13 +71,19 @@ Strict grading rules:
 - Never give the benefit of the doubt.
 - Penalize underdevelopment of ideas heavily.
 - Penalize vague, generic, repetitive, or memorized-sounding content.
-- Penalize weak paragraphing and mechanical linking devices.
+- Penalize weak paragraphing and mechanical linking devices (e.g. Firstly, Secondly, In conclusion).
 - Penalize every noticeable grammar error, awkward phrase, unnatural collocation, incorrect word form, article misuse, punctuation problem, tense inconsistency, and subject-verb disagreement.
 - Treat awkward but understandable language as an error.
 - If the essay partially answers the task, reduce the task score sharply.
 - If vocabulary is repetitive or inaccurate, reduce Lexical Resource.
 - If grammar errors are frequent, keep Grammatical Range and Accuracy low.
 - Do not praise effort.
+
+PENALTY RULES (BAND CAP):
+1. Grammar: If there are >= 3 basic errors (verb tense, missing s/es, articles), CAP Grammar score at 5.0. If complex sentences are wrong, reduce to 4.5.
+2. Vocabulary: If you detect memorized templates, clichés, or advanced words used out of context, CAP Lexical Resource at 5.5.
+3. Coherence & Cohesion: Overuse of "Firstly, Secondly..." caps Coherence at 5.0.
+4. Task Response: Off-topic or missing Overview (Task 1) caps Task Response at 5.0.
 
 CRITICAL SCORE CEILINGS (ZERO-TOLERANCE POLICY):
 - If the essay is significantly under length (e.g. < 100 words for Task 2), the MAXIMUM OVERALL BAND SCORE is 3.5.
@@ -90,16 +111,26 @@ FORMATTING REQUIREMENTS:
 
 Return a JSON object with EXACTLY this structure:
 {
-  "bandScore": number (Overall Band, calculated as average of 4 criteria rounded down to nearest half band. If any critical ceiling applies, cap it drastically),
+  "bandScore": number,
   "taskAchievementScore": number,
   "cohesionScore": number,
   "vocabularyScore": number,
   "grammarScore": number,
-  "feedback": "Extremely detailed strict feedback in Vietnamese encoded with HTML. Go paragraph by paragraph. Point out exactly which sentences are poorly constructed and explain why. Be thorough, you have a high token limit.",
-  "improvements": [
-     "HTML-encoded rewrite of the full introduction paragraph with advanced vocabulary",
-     "HTML-encoded rewrite of a poorly written body paragraph highlighting the <span class='text-emerald-600 bg-emerald-100 font-bold px-1.5 py-0.5 rounded shadow-sm'>better word/structure choices</span>",
-     "HTML-encoded actionable tip on generating better ideas"
+  "feedback": "Chỉ trích thẳng thắn, ngắn gọn bằng tiếng Việt. Không khen ngợi dài dòng.",
+  "inlineCorrections": [
+    {
+      "originalText": "câu bị sai hoặc lủng củng của user",
+      "improvedText": "câu sửa lại mượt mà, tự nhiên và học thuật hơn",
+      "type": "Vocabulary Upgrade / Sentence Restructuring / Grammar / Collocation",
+      "explanation": "Giải thích chi tiết tại sao sai và cấu trúc mới tốt hơn như thế nào (bằng tiếng Việt)"
+    }
+  ],
+  "ideaExpansion": [
+    {
+      "paragraph": "Thân bài 1 (hoặc đoạn văn cụ thể)",
+      "weakPoint": "Chỉ ra điểm yếu trong lập luận (vd: thiếu ví dụ, chưa giải thích sâu hệ quả)",
+      "suggestion": "Gợi ý cách viết thêm ví dụ hoặc đào sâu lập luận để bài thuyết phục hơn"
+    }
   ]
 }`;
 
