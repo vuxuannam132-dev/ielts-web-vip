@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { BookOpen, ArrowLeft, CheckCircle2, XCircle, Clock, Highlighter, PenTool, Eraser } from "lucide-react";
 import Link from "next/link";
