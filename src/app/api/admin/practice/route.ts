@@ -74,3 +74,31 @@ export async function DELETE(request: NextRequest) {
         return NextResponse.json({ error: 'Failed to delete practice set' }, { status: 500 });
     }
 }
+
+export async function PUT(request: NextRequest) {
+    try {
+        const session = await getSessionFromRequest(request);
+        if (!session || !["ADMIN", "TEACHER"].includes(session.role)) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
+
+        const body = await request.json();
+        const { id, contentJSON } = body;
+
+        if (!id || !contentJSON) {
+            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+        }
+
+        await prisma.practiceSet.update({
+            where: { id },
+            data: {
+                content: JSON.stringify(contentJSON),
+            },
+        });
+
+        return NextResponse.json({ success: true });
+    } catch (error) {
+        console.error('Practice update error:', error);
+        return NextResponse.json({ error: 'Failed to update practice set' }, { status: 500 });
+    }
+}

@@ -9,7 +9,7 @@ import {
     BookOpen, Headphones, PenTool, Mic,
     Flame, Trophy, Target, Zap, CheckCircle2,
     Calendar, LayoutDashboard, Settings, Edit2, Star,
-    ArrowRight, AlertCircle, Loader2, Clock
+    ArrowRight, AlertCircle, Loader2, Clock, Award
 } from "lucide-react";
 import { getDailyMissions } from "@/lib/missions";
 import OnboardingModal from "@/components/OnboardingModal";
@@ -151,6 +151,7 @@ function DashboardContent() {
     };
 
     const skillCards = [
+        { href: "/dashboard/practice/combo", icon: Award, label: "Combo Test (4 Kỹ năng)", desc: "Làm bài thi thử toàn diện như thi thật", color: "indigo" },
         { href: "/dashboard/practice/listening", icon: Headphones, label: "Listening Practice", desc: "Luyện nghe với câu hỏi thực chiến", color: "orange" },
         { href: "/dashboard/practice/reading", icon: BookOpen, label: "Reading Practice", desc: "Luyện đọc đoạn văn dài và ngắn", color: "blue" },
         { href: "/dashboard/practice/writing", icon: PenTool, label: "Writing Practice", desc: "Chấm essay Task 1 & 2 với AI", color: "purple" },
@@ -161,6 +162,7 @@ function DashboardContent() {
         blue: { bg: "bg-blue-50", text: "text-blue-600", badge: "bg-blue-100 text-blue-700", hover: "hover:border-blue-200" },
         purple: { bg: "bg-purple-50", text: "text-purple-600", badge: "bg-purple-100 text-purple-700", hover: "hover:border-purple-200" },
         green: { bg: "bg-emerald-50", text: "text-emerald-600", badge: "bg-emerald-100 text-emerald-700", hover: "hover:border-emerald-200" },
+        indigo: { bg: "bg-indigo-50", text: "text-indigo-600", badge: "bg-indigo-100 text-indigo-700", hover: "hover:border-indigo-200" },
     };
 
     return (
@@ -198,6 +200,7 @@ function DashboardContent() {
                     <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Luyện tập</h2>
                     <nav className="space-y-1">
                         <SidebarLink href="/dashboard" icon={LayoutDashboard} label="Tổng quan" active />
+                        <SidebarLink href="/dashboard/practice/combo" icon={Award} label="Full Combo Test" />
                         <SidebarLink href="/dashboard/practice/listening" icon={Headphones} label="Listening" />
                         <SidebarLink href="/dashboard/practice/reading" icon={BookOpen} label="Reading" />
                         <SidebarLink href="/dashboard/practice/writing" icon={PenTool} label="Writing" />

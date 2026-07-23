@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
 import { useState, useEffect } from 'react';
 import { BrainCircuit, LayoutDashboard, LogOut, User, ChevronDown, Shield, Menu, X, Zap, GraduationCap, BookOpen, Loader2 } from 'lucide-react';
-import { BugReportButton } from './BugReportButton';
 
 function JoinClassModal({ onClose }: { onClose: () => void }) {
     const [code, setCode] = useState("");
@@ -150,7 +149,6 @@ export function Navbar() {
                                         <GraduationCap className="h-4 w-4" /> Lớp học
                                     </Link>
                                 )}
-                                <BugReportButton />
 
                                 {/* User dropdown */}
                                 <div className="relative">

@@ -117,6 +117,30 @@ export default function AdminPracticeUpload() {
         }
     };
 
+    const handleAudioUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const formData = new FormData();
+        formData.append("file", file);
+        setSaving(true);
+        try {
+            const res = await fetch("/api/admin/upload-audio", {
+                method: "POST",
+                body: formData
+            });
+            const data = await res.json();
+            if (data.success) {
+                setAudioUrl(data.url);
+            } else {
+                alert("Lỗi upload: " + data.error);
+            }
+        } catch (e) {
+            alert("Lỗi kết nối khi upload.");
+        } finally {
+            setSaving(false);
+        }
+    };
+
     return (
         <div className="min-h-[calc(100vh-4rem)] bg-gradient-to-br from-slate-50 to-slate-100">
             <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-6">
@@ -216,13 +240,21 @@ export default function AdminPracticeUpload() {
                     </div>
                 )}
 
-                {/* 3. READING & LISTENING EDITOR */}
+                {/* Reading & Listening Builder */}
                 {(skill === "reading" || skill === "listening") && (
                     <div className="space-y-6">
                         {skill === "listening" && (
                             <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-                                <label className="block text-sm font-bold text-slate-800 mb-2">Link File Audio MP3 (Bắt buộc)</label>
-                                <input value={audioUrl} onChange={e => setAudioUrl(e.target.value)} className="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500" placeholder="https://example.com/audio.mp3 (Hoặc up lên host của bạn lấy link dán vào đây)" />
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5">File Audio / URL Audio</label>
+                                <div className="flex gap-2">
+                                    <input type="text" value={audioUrl} onChange={e => setAudioUrl(e.target.value)}
+                                        className="flex-1 border border-slate-300 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" placeholder="https://... hoặc upload file" />
+                                    <label className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2.5 rounded-xl cursor-pointer font-semibold flex items-center gap-2 border border-slate-200 transition">
+                                        <Upload className="h-4 w-4" /> Upload MP3
+                                        <input type="file" accept="audio/*" className="hidden" onChange={handleAudioUpload} disabled={saving} />
+                                    </label>
+                                </div>
+                                {audioUrl && <audio controls src={audioUrl} className="mt-3 w-full h-10" />}
                             </div>
                         )}
 

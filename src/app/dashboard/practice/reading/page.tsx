@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { BookOpen, ArrowLeft, CheckCircle2, XCircle, Clock } from "lucide-react";
+import { BookOpen, ArrowLeft, CheckCircle2, XCircle, Clock, Highlighter, PenTool, Eraser } from "lucide-react";
 import Link from "next/link";
 
 interface Question {
@@ -33,6 +33,73 @@ export default function ReadingPractice() {
     const [evaluation, setEvaluation] = useState<any>(null);
     const [timeLeft, setTimeLeft] = useState(60 * 60);
     const [timerRunning, setTimerRunning] = useState(false);
+    const [drawMode, setDrawMode] = useState(false);
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const passageRef = useRef<HTMLDivElement>(null);
+    const [isDrawing, setIsDrawing] = useState(false);
+    const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
+
+    // Setup Canvas
+    useEffect(() => {
+        if (!drawMode || !canvasRef.current || !passageRef.current) return;
+        const canvas = canvasRef.current;
+        const resizeCanvas = () => {
+            canvas.width = passageRef.current!.scrollWidth;
+            canvas.height = passageRef.current!.scrollHeight;
+        };
+        resizeCanvas();
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+            ctx.lineCap = "round";
+            ctx.strokeStyle = "rgba(239, 68, 68, 0.6)"; // Red-ish pen
+            ctx.lineWidth = 3;
+            ctxRef.current = ctx;
+        }
+    }, [drawMode, selected]);
+
+    const startDraw = (e: React.MouseEvent | React.TouchEvent) => {
+        if (!drawMode || !ctxRef.current || !canvasRef.current) return;
+        setIsDrawing(true);
+        const rect = canvasRef.current.getBoundingClientRect();
+        const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
+        const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY;
+        ctxRef.current.beginPath();
+        ctxRef.current.moveTo(clientX - rect.left, clientY - rect.top);
+    };
+
+    const draw = (e: React.MouseEvent | React.TouchEvent) => {
+        if (!isDrawing || !ctxRef.current || !canvasRef.current) return;
+        const rect = canvasRef.current.getBoundingClientRect();
+        const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
+        const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY;
+        ctxRef.current.lineTo(clientX - rect.left, clientY - rect.top);
+        ctxRef.current.stroke();
+    };
+
+    const stopDraw = () => {
+        if (ctxRef.current) ctxRef.current.closePath();
+        setIsDrawing(false);
+    };
+
+    const clearCanvas = () => {
+        if (canvasRef.current && ctxRef.current) {
+            ctxRef.current.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+        }
+    };
+
+    const handleHighlight = () => {
+        const selection = window.getSelection();
+        if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return;
+        try {
+            const range = selection.getRangeAt(0);
+            const span = document.createElement("span");
+            span.className = "bg-yellow-200/80 rounded";
+            range.surroundContents(span);
+            selection.removeAllRanges();
+        } catch (e) {
+            console.warn("Could not highlight across multiple nodes easily.");
+        }
+    };
 
     useEffect(() => {
         fetch("/api/practice?skill=reading")
@@ -132,13 +199,36 @@ export default function ReadingPractice() {
 
                 <div className="grid lg:grid-cols-2 gap-6">
                     {/* Passage */}
-                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-4 max-h-[70vh] overflow-y-auto">
-                        {passages.map((p: any, i: number) => (
-                            <div key={i}>
-                                {p.title && <h3 className="font-bold text-slate-800 mb-3">{p.title}</h3>}
-                                <p className="text-slate-700 leading-relaxed text-sm whitespace-pre-line">{p.text || p.passage || "Không có nội dung."}</p>
+                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+                        <div className="bg-slate-50 border-b border-slate-200 p-2 flex gap-2 justify-end">
+                            <button onClick={handleHighlight} className="p-2 text-slate-600 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Bôi đen văn bản rồi ấn để Highlight">
+                                <Highlighter className="h-4 w-4" />
+                            </button>
+                            <button onClick={() => setDrawMode(!drawMode)} className={`p-2 rounded-lg transition ${drawMode ? 'bg-blue-100 text-blue-700' : 'text-slate-600 hover:bg-slate-200'}`} title="Bật/Tắt bút vẽ">
+                                <PenTool className="h-4 w-4" />
+                            </button>
+                            <button onClick={clearCanvas} className="p-2 text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title="Xóa nét vẽ">
+                                <Eraser className="h-4 w-4" />
+                            </button>
+                        </div>
+                        <div ref={passageRef} className="relative p-6 max-h-[70vh] overflow-y-auto">
+                            {drawMode && (
+                                <canvas
+                                    ref={canvasRef}
+                                    onMouseDown={startDraw} onMouseMove={draw} onMouseUp={stopDraw} onMouseLeave={stopDraw}
+                                    onTouchStart={startDraw} onTouchMove={draw} onTouchEnd={stopDraw}
+                                    className="absolute top-0 left-0 w-full h-full z-10 cursor-crosshair touch-none"
+                                />
+                            )}
+                            <div className={`space-y-4 ${drawMode ? 'select-none pointer-events-none' : ''}`}>
+                                {passages.map((p: any, i: number) => (
+                                    <div key={i}>
+                                        {p.title && <h3 className="font-bold text-slate-800 mb-3">{p.title}</h3>}
+                                        <p className="text-slate-700 leading-relaxed text-sm whitespace-pre-line">{p.text || p.passage || "Không có nội dung."}</p>
+                                    </div>
+                                ))}
                             </div>
-                        ))}
+                        </div>
                     </div>
 
                     {/* Questions */}

@@ -27,6 +27,7 @@ export default function AdminPracticeImport() {
         if (content.parts || content.audioUrl || content.tapescript) return "listening";
         if (content.writing || content.type === "TASK1" || content.type === "TASK2" || content.task1Prompt || content.task2Prompt) return "writing";
         if (content.speaking || content.part1 || content.part2 || content.part3 || content.cueCard) return "speaking";
+        if (content.reading && content.listening && content.writing && content.speaking) return "combo";
         return "reading"; // default fallback
     };
 

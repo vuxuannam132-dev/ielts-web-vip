@@ -4,10 +4,28 @@ import { useState, useEffect } from "react";
 import { Users, FileText, Settings, Shield, Edit2, KeyRound, Loader2, Trash2, Banknote, LayoutDashboard, Plus, Flame, Bug, Activity, BrainCircuit } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
+import { useToast } from "@/contexts/ToastContext";
 
 export default function AdminDashboard() {
     const { data: session, status } = useSession();
     const [activeTab, setActiveTab] = useState("dashboard");
+    const { addToast } = useToast();
+
+    // Simulate incoming notifications for demo purposes
+    useEffect(() => {
+        if (status !== "authenticated" || (session?.user as any)?.role !== "ADMIN") return;
+        const msgs = [
+            "Học sinh 'Nguyễn Văn A' vừa báo lỗi ở bài nghe Test 3.",
+            "Có 3 học sinh mới đăng ký tài khoản.",
+            "Yêu cầu nâng cấp VIP từ user 'tranhieu@...'",
+        ];
+        let i = 0;
+        const interval = setInterval(() => {
+            addToast('info', msgs[i % msgs.length]);
+            i++;
+        }, 25000); // every 25 seconds
+        return () => clearInterval(interval);
+    }, [status, session, addToast]);
 
     if (status === "loading") {
         return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
@@ -61,22 +79,7 @@ export default function AdminDashboard() {
                 {activeTab === "users" && <UsersManager />}
                 {activeTab === "payment" && <PaymentConfig />}
                 {activeTab === "settings" && <SystemSettings />}
-                {activeTab === "content" && (
-                    <div className="space-y-6">
-                        <div className="flex justify-between items-center">
-                            <h2 className="text-2xl font-bold">Bài tập (Practice Sets)</h2>
-                            <div className="flex gap-3">
-                                <Link href="/admin/import" className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-emerald-700">
-                                    <FileText className="h-4 w-4" /> Import JSON
-                                </Link>
-                                <Link href="/admin/upload" className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700">
-                                    <Plus className="h-4 w-4" /> Thêm bài mới
-                                </Link>
-                            </div>
-                        </div>
-                        <p className="text-slate-500">Quản lý kho bài tập cho học viên (Writing, Speaking, Reading, Listening).</p>
-                    </div>
-                )}
+                {activeTab === "content" && <PracticeManager />}
             </main>
         </div>
     );
@@ -87,6 +90,7 @@ export default function AdminDashboard() {
 // ───────────────────────────────────────────────
 
 function WelcomeView() {
+    const { addToast } = useToast();
     const [stats, setStats] = useState<{ totalUsers: number, vipUsers: number, totalSubmissions: number, activeUsersCount: number, topUsers?: any[], aiTokensUsed?: number }>({ totalUsers: 0, vipUsers: 0, totalSubmissions: 0, activeUsersCount: 0, aiTokensUsed: 0 });
     const [loading, setLoading] = useState(true);
 
@@ -99,8 +103,15 @@ function WelcomeView() {
 
     return (
         <div className="space-y-6">
-            <h1 className="text-3xl font-bold text-slate-900">Dashboard</h1>
-            <p className="text-slate-500">Chào mừng bạn trở lại hệ thống quản trị IELTS SKIBIDI.</p>
+            <div className="flex justify-between items-center">
+                <div>
+                    <h1 className="text-3xl font-bold text-slate-900">Dashboard</h1>
+                    <p className="text-slate-500">Chào mừng bạn trở lại hệ thống quản trị IELTS SKIBIDI.</p>
+                </div>
+                <button className="bg-blue-500 hover:bg-blue-600 text-white font-bold px-4 py-2 rounded-lg shadow-sm transition-colors flex items-center gap-2" onClick={() => addToast('info', 'Thông báo thử nghiệm từ hệ thống Admin!')}>
+                    <Activity className="h-4 w-4" /> Test Toast
+                </button>
+            </div>
             {loading ? <p className="text-slate-500">Đang tải dữ liệu...</p> : (
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-6">
                     <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
@@ -341,20 +352,6 @@ function PaymentConfig() {
         } else {
             const err = await res.json();
             alert(err.error || 'Có lỗi xảy ra');
-        }
-    };
-
-    return (
-        <div className="space-y-6">
-            <div className="flex justify-between items-center">
-                <div>
-                    <h2 className="text-2xl font-bold">Quản lý Gói (Packages)</h2>
-                    <p className="text-slate-500">Cấu hình các gói thành viên hiển thị trên website.</p>
-                </div>
-                {!editingPkg && (
-                    <button onClick={() => setEditingPkg({})} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700">
-                        <Plus className="h-4 w-4" /> Thêm Gói Mới
-                    </button>
                 )}
             </div>
 
@@ -447,6 +444,29 @@ function SystemSettings() {
         alert('Đã lưu cấu hình!');
     };
 
+    const handleReset = async (type: 'exercises' | 'users' | 'all') => {
+        const msgs = {
+            'exercises': 'Bạn có chắc muốn XÓA TOÀN BỘ bài tập và bài làm không?',
+            'users': 'Bạn có chắc muốn XÓA TOÀN BỘ người dùng (trừ Admin) không?',
+            'all': 'CẢNH BÁO ĐỎ: Khôi phục cài đặt gốc sẽ xóa SẠCH toàn bộ hệ thống (trừ Admin). Bạn chắc chứ?'
+        };
+        if (!confirm(msgs[type])) return;
+        if (type === 'all' && prompt('Nhập "RESET" để xác nhận:') !== 'RESET') return;
+
+        try {
+            const res = await fetch('/api/admin/reset', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type })
+            });
+            const data = await res.json();
+            if (data.success) alert(data.message);
+            else alert('Lỗi: ' + data.error);
+        } catch (e) {
+            alert('Lỗi kết nối.');
+        }
+    };
+
     if (loading) return <p className="text-slate-500 mt-10 text-center">Đang tải cấu hình...</p>;
 
     return (
@@ -494,6 +514,29 @@ function SystemSettings() {
                     Lưu cấu hình
                 </button>
             </form>
+
+            <h2 className="text-2xl font-bold text-red-600 mt-10">Làm sạch hệ thống (Danger Zone)</h2>
+            <div className="bg-red-50 rounded-2xl shadow-sm border border-red-200 p-8 space-y-6">
+                <div>
+                    <h3 className="text-lg font-bold mb-2 text-red-700">Tùy chọn Reset</h3>
+                    <p className="text-sm text-red-600 mb-6">Hành động này không thể hoàn tác. Vui lòng cẩn trọng!</p>
+                    
+                    <div className="grid gap-4 md:grid-cols-3">
+                        <button onClick={() => handleReset('exercises')} className="flex flex-col items-center justify-center gap-2 bg-white border-2 border-red-200 hover:border-red-500 hover:bg-red-50 p-4 rounded-xl transition text-red-700 font-bold">
+                            <Trash2 className="h-6 w-6" />
+                            Xóa toàn bộ Bài Tập
+                        </button>
+                        <button onClick={() => handleReset('users')} className="flex flex-col items-center justify-center gap-2 bg-white border-2 border-red-200 hover:border-red-500 hover:bg-red-50 p-4 rounded-xl transition text-red-700 font-bold">
+                            <Users className="h-6 w-6" />
+                            Xóa toàn bộ Users
+                        </button>
+                        <button onClick={() => handleReset('all')} className="flex flex-col items-center justify-center gap-2 bg-red-600 border-2 border-red-600 hover:bg-red-700 text-white p-4 rounded-xl transition font-bold shadow-md">
+                            <Shield className="h-6 w-6" />
+                            Khôi phục Cài đặt gốc
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
     );
 }
@@ -584,6 +627,174 @@ function ActivityLogsManager() {
                     ))}
                 </div>
             )}
+        </div>
+    );
+}
+
+function PracticeManager() {
+    const [sets, setSets] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [tab, setTab] = useState<'SINGLE' | 'COMBO'>('SINGLE');
+    const [editing, setEditing] = useState<any>(null);
+    const [jsonStr, setJsonStr] = useState("");
+
+    // Live parsing for preview
+    let parsedPreview = null;
+    try { parsedPreview = JSON.parse(jsonStr); } catch { }
+
+    useEffect(() => {
+        fetch('/api/admin/practice').then(r => r.json()).then(data => {
+            if (Array.isArray(data)) setSets(data);
+            setLoading(false);
+        });
+    }, []);
+
+    const handleDelete = async (id: string) => {
+        if (!confirm('Xóa bài tập này?')) return;
+        await fetch(`/api/admin/practice?id=${id}`, { method: 'DELETE' });
+        setSets(sets.filter(s => s.id !== id));
+    };
+
+    const handleEdit = (s: any) => {
+        setEditing(s);
+        setJsonStr(s.content);
+    };
+
+    const handleSave = async () => {
+        try {
+            JSON.parse(jsonStr); // validate
+            // For saving, we can create a PUT endpoint or just delete and recreate.
+            // Since we don't have PUT in practice API, let's just alert for now.
+            // Wait, we can implement PUT in /api/admin/practice/route.ts
+            const res = await fetch('/api/admin/practice', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: editing.id, contentJSON: JSON.parse(jsonStr) })
+            });
+            if (res.ok) {
+                alert('Đã lưu thành công');
+                setSets(sets.map(x => x.id === editing.id ? { ...x, content: jsonStr } : x));
+                setEditing(null);
+            } else {
+                alert('Lỗi khi lưu');
+            }
+        } catch (e) {
+            alert('JSON không hợp lệ');
+        }
+    };
+
+    const singles = sets.filter(s => s.skill !== 'COMBO');
+    const combos = sets.filter(s => s.skill === 'COMBO');
+
+    if (editing) {
+        return (
+            <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                    <h2 className="text-xl font-bold">Sửa bài tập: {editing.title}</h2>
+                    <div className="flex gap-2">
+                        <button onClick={() => setEditing(null)} className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg">Hủy</button>
+                        <button onClick={handleSave} className="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2"><Save className="h-4 w-4" /> Lưu lại</button>
+                    </div>
+                </div>
+                <div className="grid grid-cols-2 gap-6 h-[70vh]">
+                    <div className="flex flex-col h-full bg-slate-900 rounded-xl p-4 overflow-hidden">
+                        <h3 className="text-white font-mono text-sm mb-2 opacity-80">Trình soạn thảo JSON</h3>
+                        <textarea value={jsonStr} onChange={e => setJsonStr(e.target.value)}
+                            className="flex-1 w-full bg-slate-800 text-emerald-400 font-mono text-sm p-4 outline-none rounded-lg resize-none" />
+                    </div>
+                    <div className="h-full bg-white rounded-xl border border-slate-200 overflow-y-auto p-6 shadow-inner">
+                        <h3 className="font-bold text-slate-800 mb-4 border-b pb-2">Live Preview (Mô phỏng UI)</h3>
+                        {!parsedPreview ? (
+                            <p className="text-red-500 text-sm font-semibold flex items-center gap-2"><AlertCircle className="h-4 w-4"/> JSON lỗi cú pháp</p>
+                        ) : (
+                            <div className="space-y-6 pointer-events-none opacity-90">
+                                {/* Basic Preview Renderer */}
+                                {editing.skill === 'READING' && parsedPreview.passages?.map((p: any, i: number) => (
+                                    <div key={i} className="border p-4 rounded-lg bg-slate-50">
+                                        <h4 className="font-bold text-blue-800 mb-2">{p.title || `Passage ${i+1}`}</h4>
+                                        <div className="text-sm text-slate-600 line-clamp-3 mb-4">{p.text}</div>
+                                        <div className="space-y-2">
+                                            {p.questions?.map((q: any, qi: number) => (
+                                                <div key={qi} className="bg-white p-2 rounded border text-sm">
+                                                    <span className="font-bold mr-2">{q.id || qi+1}.</span> {q.text}
+                                                    <div className="text-emerald-600 text-xs font-bold mt-1">Đáp án: {q.type === 'multi-mcq' ? q.answers?.join(', ') : q.answer}</div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
+                                {editing.skill === 'LISTENING' && (
+                                    <div className="border p-4 rounded-lg bg-slate-50">
+                                        {parsedPreview.audioUrl && <audio controls src={parsedPreview.audioUrl} className="w-full mb-4" />}
+                                        <div className="space-y-2">
+                                            {parsedPreview.parts?.flatMap((p:any) => p.questions).map((q: any, qi: number) => q && (
+                                                <div key={qi} className="bg-white p-2 rounded border text-sm">
+                                                    <span className="font-bold mr-2">{q.id || qi+1}.</span> {q.text}
+                                                    <div className="text-emerald-600 text-xs font-bold mt-1">Đáp án: {q.type === 'multi-mcq' ? q.answers?.join(', ') : q.answer}</div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                                {(editing.skill === 'WRITING' || editing.skill === 'SPEAKING') && (
+                                    <pre className="text-xs text-slate-700 whitespace-pre-wrap">{JSON.stringify(parsedPreview, null, 2)}</pre>
+                                )}
+                                {editing.skill === 'COMBO' && (
+                                    <div className="grid grid-cols-2 gap-4">
+                                        {['reading', 'listening', 'writing', 'speaking'].map(s => parsedPreview[s] && (
+                                            <div key={s} className="p-4 border rounded bg-orange-50 capitalize font-bold text-orange-800">
+                                                {s} Section <span className="text-xs font-normal text-slate-500 block">Đã có dữ liệu</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-6">
+            <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-bold">Bài tập (Practice Sets)</h2>
+                <div className="flex gap-3">
+                    <Link href="/admin/import" className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-emerald-700">
+                        <FileText className="h-4 w-4" /> Import JSON
+                    </Link>
+                    <Link href="/admin/upload" className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700">
+                        <Plus className="h-4 w-4" /> Thêm bài mới
+                    </Link>
+                </div>
+            </div>
+            
+            <div className="flex gap-4 border-b border-slate-200 pb-2">
+                <button onClick={() => setTab('SINGLE')} className={`px-4 py-2 font-bold ${tab === 'SINGLE' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500'}`}>Bài tập Lẻ ({singles.length})</button>
+                <button onClick={() => setTab('COMBO')} className={`px-4 py-2 font-bold ${tab === 'COMBO' ? 'text-orange-600 border-b-2 border-orange-600' : 'text-slate-500'}`}>Full Combo ({combos.length})</button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
+                {loading ? <p>Đang tải...</p> : (tab === 'SINGLE' ? singles : combos).map(s => (
+                    <div key={s.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 relative">
+                        <div className="flex justify-between items-start mb-3">
+                            <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded">{s.skill}</span>
+                            <span className="text-xs text-slate-400">{new Date(s.createdAt).toLocaleDateString('vi-VN')}</span>
+                        </div>
+                        <h3 className="font-bold text-slate-800 text-lg mb-1">{s.title}</h3>
+                        <p className="text-slate-500 text-sm mb-4">{s.difficulty}</p>
+                        <div className="flex gap-2">
+                            <button onClick={() => handleEdit(s)} className="flex-1 bg-slate-100 text-slate-700 py-1.5 rounded-lg font-semibold flex items-center justify-center gap-1 hover:bg-slate-200 text-sm">
+                                <Edit2 className="h-4 w-4" /> Sửa UI
+                            </button>
+                            <button onClick={() => handleDelete(s.id)} className="px-3 bg-red-50 text-red-600 rounded-lg hover:bg-red-100">
+                                <Trash2 className="h-4 w-4" />
+                            </button>
+                        </div>
+                    </div>
+                ))}
+            </div>
         </div>
     );
 }

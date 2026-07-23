@@ -3,8 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
-    Headphones, Clock, CheckCircle2, XCircle, ArrowLeft, Volume2,
-    Play, Pause, RotateCcw, RotateCw, BookOpen, AlertCircle
+    Play, Pause, RotateCcw, RotateCw, BookOpen, AlertCircle, Highlighter, PenTool, Eraser
 } from "lucide-react";
 import Link from "next/link";
 
@@ -40,6 +39,74 @@ export default function ListeningPractice() {
     const [timeLeft, setTimeLeft] = useState(30 * 60);
     const [isTimerRunning, setIsTimerRunning] = useState(false);
     const audioRef = React.useRef<HTMLAudioElement>(null);
+
+    const [drawMode, setDrawMode] = useState(false);
+    const canvasRef = React.useRef<HTMLCanvasElement>(null);
+    const questionsRef = React.useRef<HTMLDivElement>(null);
+    const [isDrawing, setIsDrawing] = useState(false);
+    const ctxRef = React.useRef<CanvasRenderingContext2D | null>(null);
+
+    // Setup Canvas
+    useEffect(() => {
+        if (!drawMode || !canvasRef.current || !questionsRef.current) return;
+        const canvas = canvasRef.current;
+        const resizeCanvas = () => {
+            canvas.width = questionsRef.current!.scrollWidth;
+            canvas.height = questionsRef.current!.scrollHeight;
+        };
+        resizeCanvas();
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+            ctx.lineCap = "round";
+            ctx.strokeStyle = "rgba(239, 68, 68, 0.6)"; // Red-ish pen
+            ctx.lineWidth = 3;
+            ctxRef.current = ctx;
+        }
+    }, [drawMode, selectedSet]);
+
+    const startDraw = (e: React.MouseEvent | React.TouchEvent) => {
+        if (!drawMode || !ctxRef.current || !canvasRef.current) return;
+        setIsDrawing(true);
+        const rect = canvasRef.current.getBoundingClientRect();
+        const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
+        const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY;
+        ctxRef.current.beginPath();
+        ctxRef.current.moveTo(clientX - rect.left, clientY - rect.top);
+    };
+
+    const draw = (e: React.MouseEvent | React.TouchEvent) => {
+        if (!isDrawing || !ctxRef.current || !canvasRef.current) return;
+        const rect = canvasRef.current.getBoundingClientRect();
+        const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
+        const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY;
+        ctxRef.current.lineTo(clientX - rect.left, clientY - rect.top);
+        ctxRef.current.stroke();
+    };
+
+    const stopDraw = () => {
+        if (ctxRef.current) ctxRef.current.closePath();
+        setIsDrawing(false);
+    };
+
+    const clearCanvas = () => {
+        if (canvasRef.current && ctxRef.current) {
+            ctxRef.current.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+        }
+    };
+
+    const handleHighlight = () => {
+        const selection = window.getSelection();
+        if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return;
+        try {
+            const range = selection.getRangeAt(0);
+            const span = document.createElement("span");
+            span.className = "bg-yellow-200/80 rounded";
+            range.surroundContents(span);
+            selection.removeAllRanges();
+        } catch (e) {
+            console.warn("Could not highlight across multiple nodes easily.");
+        }
+    };
 
     useEffect(() => {
         fetch("/api/practice?skill=listening")
@@ -260,12 +327,36 @@ export default function ListeningPractice() {
 
                 {/* Questions */}
                 {allQuestions.length > 0 && (
-                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-                        <div className="flex items-center gap-3 mb-6">
-                            <div className="bg-orange-100 text-orange-700 px-3 py-1 rounded-lg text-sm font-bold">Questions 1–{allQuestions.length}</div>
-                            <span className="text-sm text-slate-500">Hoàn thành các câu hỏi bên dưới</span>
+                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                        <div className="bg-slate-50 border-b border-slate-200 p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                            <div className="flex items-center gap-3">
+                                <div className="bg-orange-100 text-orange-700 px-3 py-1 rounded-lg text-sm font-bold">Questions 1–{allQuestions.length}</div>
+                                <span className="text-sm text-slate-500 hidden sm:inline">Hoàn thành các câu hỏi bên dưới</span>
+                            </div>
+                            <div className="flex gap-2">
+                                <button onClick={handleHighlight} className="p-2 text-slate-600 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Bôi đen văn bản rồi ấn để Highlight">
+                                    <Highlighter className="h-4 w-4" />
+                                </button>
+                                <button onClick={() => setDrawMode(!drawMode)} className={`p-2 rounded-lg transition ${drawMode ? 'bg-orange-100 text-orange-700' : 'text-slate-600 hover:bg-slate-200'}`} title="Bật/Tắt bút vẽ">
+                                    <PenTool className="h-4 w-4" />
+                                </button>
+                                <button onClick={clearCanvas} className="p-2 text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title="Xóa nét vẽ">
+                                    <Eraser className="h-4 w-4" />
+                                </button>
+                            </div>
                         </div>
-                        {mapImages.length > 0 && (
+
+                        <div ref={questionsRef} className="relative p-6">
+                            {drawMode && (
+                                <canvas
+                                    ref={canvasRef}
+                                    onMouseDown={startDraw} onMouseMove={draw} onMouseUp={stopDraw} onMouseLeave={stopDraw}
+                                    onTouchStart={startDraw} onTouchMove={draw} onTouchEnd={stopDraw}
+                                    className="absolute top-0 left-0 w-full h-full z-10 cursor-crosshair touch-none"
+                                />
+                            )}
+                            <div className={`space-y-6 ${drawMode ? 'select-none pointer-events-none' : ''}`}>
+                                {mapImages.length > 0 && (
                             <div className="mb-6 space-y-4">
                                 {mapImages.map((img: string, i: number) => (
                                     <div key={i} className="rounded-xl border border-slate-200 overflow-hidden bg-slate-50 p-2">
@@ -318,26 +409,37 @@ export default function ListeningPractice() {
                                                     ))}
                                                 </div>
                                             )}
-                                            {q.type === "matching" && q.options && (
-                                                <select value={getAnswer(q.id)} onChange={e => handleAnswer(q.id, e.target.value)} disabled={isSubmitted} className="w-full max-w-xs border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500 outline-none mt-2">
-                                                    <option value="">-- Chọn đáp án --</option>
-                                                    {q.options.map((opt, i) => (
-                                                        <option key={i} value={opt}>{opt}</option>
+                                            {q.type === "matching" && (
+                                                <div className="space-y-2 mt-2">
+                                                    {q.options?.map((opt, i) => (
+                                                        <div key={i} className="flex items-center gap-3 p-2 bg-slate-50 border border-slate-100 rounded-lg">
+                                                            <span className="text-sm font-bold text-slate-500 w-6">{String.fromCharCode(65 + i)}</span>
+                                                            <span className="text-sm flex-1">{opt}</span>
+                                                        </div>
                                                     ))}
-                                                </select>
+                                                    <div className="flex items-center gap-2 mt-3">
+                                                        <input type="text" value={getAnswer(q.id)} onChange={e => handleAnswer(q.id, e.target.value)} disabled={isSubmitted}
+                                                            className="w-20 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500 outline-none text-center font-bold" placeholder="VD: A" />
+                                                        <span className="text-xs text-slate-400">Nhập chữ cái tương ứng</span>
+                                                    </div>
+                                                </div>
                                             )}
                                             {isSubmitted && (
-                                                <div className="mt-2 text-sm">
+                                                <div className="mt-3 p-3 rounded-lg bg-slate-50 border border-slate-200">
                                                     {isCorrect(q.id) ? (
-                                                        <div className="text-emerald-600 flex items-center gap-1 bg-emerald-50 px-3 py-2 rounded border border-emerald-100"><CheckCircle2 className="h-4 w-4" /> Chính xác</div>
+                                                        <div className="flex items-center gap-2 text-emerald-600 font-bold text-sm">
+                                                            <CheckCircle2 className="h-4 w-4" /> Chính xác!
+                                                        </div>
                                                     ) : (
-                                                        <div className="text-red-700 flex flex-col gap-2 bg-red-50 p-4 rounded-xl border border-red-100">
-                                                            <div className="flex items-center gap-1 font-semibold"><XCircle className="h-4 w-4" /> Sai. Đáp án đúng: {q.type === 'multi-mcq' && q.answers ? q.answers.join(", ") : q.answer}</div>
-                                                            {getWrongAnswer(q.id)?.reason && (
-                                                                <div className="text-sm text-red-800 bg-white/60 p-3 rounded-lg border border-red-100/50">
-                                                                    <strong className="text-slate-800 block mb-1">💡 Lý do:</strong>
-                                                                    <div dangerouslySetInnerHTML={{ __html: getWrongAnswer(q.id).reason }} />
-                                                                </div>
+                                                        <div className="space-y-2">
+                                                            <div className="flex items-center gap-2 text-red-600 font-bold text-sm">
+                                                                <XCircle className="h-4 w-4" /> Sai rồi. Đáp án đúng là: {q.type === "multi-mcq" ? q.answers?.join(", ") : q.answer}
+                                                            </div>
+                                                            {getWrongAnswer(q.id)?.explanation && (
+                                                                <p className="text-sm text-slate-600 border-l-2 border-red-300 pl-3">
+                                                                    <span className="font-semibold text-slate-700">Giải thích: </span>
+                                                                    {getWrongAnswer(q.id)?.explanation}
+                                                                </p>
                                                             )}
                                                         </div>
                                                     )}

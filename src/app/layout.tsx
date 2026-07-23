@@ -4,6 +4,7 @@ import "./globals.css";
 
 import { Navbar } from "@/components/layout/Navbar";
 import { Providers } from "@/components/Providers";
+import { ToastProvider } from "@/contexts/ToastContext";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -26,14 +27,16 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${inter.className} min-h-screen bg-slate-50 flex flex-col`}>
         <Providers>
-          <WelcomeModal />
-          <VerifyPromptModal />
-          <GlobalSessionSync />
-          <Navbar />
-          <main className="flex-1">
-            {children}
-            <BugReportWidget />
-          </main>
+          <ToastProvider>
+            <WelcomeModal />
+            <VerifyPromptModal />
+            <GlobalSessionSync />
+            <Navbar />
+            <main className="flex-1">
+              {children}
+              <BugReportWidget />
+            </main>
+          </ToastProvider>
         </Providers>
       </body>
     </html>
