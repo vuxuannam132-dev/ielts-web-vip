@@ -57,13 +57,23 @@ function JoinClassModal({ onClose }: { onClose: () => void }) {
 }
 
 export function Navbar() {
-    const { data: session } = useSession();
+    const { data: session, status } = useSession();
     const [menuOpen, setMenuOpen] = useState(false);
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const [showJoinModal, setShowJoinModal] = useState(false);
     const [studentClasses, setStudentClasses] = useState<any[]>([]);
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-    const user = session?.user as { name?: string; email?: string; role?: string; tier?: string } | undefined;
+    const handleLogout = () => {
+        setIsLoggingOut(true);
+        setDropdownOpen(false);
+        setMenuOpen(false);
+        setStudentClasses([]);
+        signOut({ callbackUrl: '/' });
+    };
+
+    // If logging out or session loading, treat as no user
+    const user = (!isLoggingOut && status === 'authenticated') ? session?.user as { name?: string; email?: string; role?: string; tier?: string } | undefined : undefined;
 
     const tierBadge: Record<string, { label: string; cls: string }> = {
         FREE: { label: 'Free', cls: 'bg-slate-100 text-slate-600' },
@@ -196,7 +206,7 @@ export function Navbar() {
                                                         <Zap className="h-4 w-4" /> Nâng cấp VIP
                                                     </Link>
                                                 )}
-                                                <button onClick={() => { setDropdownOpen(false); signOut({ callbackUrl: '/' }); }}
+                                                <button onClick={handleLogout}
                                                     className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition">
                                                     <LogOut className="h-4 w-4" /> Đăng xuất
                                                 </button>
@@ -252,7 +262,7 @@ export function Navbar() {
                                         <Zap className="h-4 w-4" /> Nâng cấp VIP 🔥
                                     </Link>
                                 )}
-                                <button onClick={() => signOut({ callbackUrl: '/' })} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50">
+                                <button onClick={handleLogout} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50">
                                     <LogOut className="h-4 w-4" /> Đăng xuất
                                 </button>
                             </>

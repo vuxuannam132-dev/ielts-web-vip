@@ -29,9 +29,11 @@ export const authConfig: NextAuthConfig = {
                 token.tier = (user as any).tier ?? 'FREE';
                 token.isVerified = (user as any).isVerified ?? true;
             }
-            // Khi gọi update() từ client để refresh isVerified
-            if (trigger === 'update' && session?.isVerified !== undefined) {
-                token.isVerified = session.isVerified;
+            // Khi gọi update() từ client để refresh session fields
+            if (trigger === 'update' && session) {
+                if (session.isVerified !== undefined) token.isVerified = session.isVerified;
+                if (session.role !== undefined) token.role = session.role;
+                if (session.tier !== undefined) token.tier = session.tier;
             }
             return token;
         },

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { AlertTriangle, LogOut, Send, Loader2 } from 'lucide-react'
 
@@ -12,50 +12,54 @@ export default function GlobalSessionSync() {
   const [sending, setSending] = useState(false)
   const [message, setMessage] = useState<{ type: 'error'|'success', text: string } | null>(null)
 
-  useEffect(() => {
-    if (status !== 'authenticated') return
+  // Use ref to access session without adding it as a useEffect dependency
+  const sessionRef = useRef(session)
+  useEffect(() => { sessionRef.current = session }, [session])
 
-    const checkStatus = async () => {
-      try {
-        const res = await fetch('/api/auth/status')
-        if (res.ok) {
-          const data = await res.json()
-          if (!data.authenticated) return
+  const checkStatus = useCallback(async () => {
+    try {
+      const res = await fetch('/api/auth/status')
+      if (res.ok) {
+        const data = await res.json()
+        if (!data.authenticated) return
 
-          if (data.isLocked) {
-            setIsLocked(true)
-          } else {
-            setIsLocked(false)
+        if (data.isLocked) {
+          setIsLocked(true)
+        } else {
+          setIsLocked(false)
+        }
+
+        const user = sessionRef.current?.user as any
+        if (user) {
+          let needsUpdate = false;
+          const payload: any = {};
+
+          if (data.role && data.role !== user.role) {
+            needsUpdate = true;
+            payload.role = data.role;
+          }
+          if (data.tier && data.tier !== user.tier) {
+            needsUpdate = true;
+            payload.tier = data.tier;
           }
 
-          const user = session?.user as any
-          if (user) {
-            let needsUpdate = false;
-            const payload: any = {};
-
-            if (data.role && data.role !== user.role) {
-              needsUpdate = true;
-              payload.role = data.role;
-            }
-            if (data.tier && data.tier !== user.tier) {
-              needsUpdate = true;
-              payload.tier = data.tier;
-            }
-
-            if (needsUpdate) {
-              await update(payload)
-            }
+          if (needsUpdate) {
+            await update(payload)
           }
         }
-      } catch (e) {
-        // Ignore network errors
       }
+    } catch (e) {
+      // Ignore network errors
     }
+  }, [update])
+
+  useEffect(() => {
+    if (status !== 'authenticated') return
 
     checkStatus()
     const interval = setInterval(checkStatus, 30000)
     return () => clearInterval(interval)
-  }, [status, session, update])
+  }, [status, checkStatus])
 
   const handleUnlockRequest = async (e: React.FormEvent) => {
     e.preventDefault()

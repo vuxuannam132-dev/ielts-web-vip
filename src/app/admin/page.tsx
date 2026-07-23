@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Users, FileText, Settings, Shield, Edit2, KeyRound, Loader2, Trash2, Banknote, LayoutDashboard, Plus, Flame, Bug, Activity, BrainCircuit, Save, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -11,19 +11,56 @@ export default function AdminDashboard() {
     const [activeTab, setActiveTab] = useState("dashboard");
     const { addToast } = useToast();
 
-    // Simulate incoming notifications for demo purposes
+    const lastLogId = useRef<number | null>(null);
+
+    // Fetch and show real notifications for Admin
     useEffect(() => {
         if (status !== "authenticated" || (session?.user as any)?.role !== "ADMIN") return;
-        const msgs = [
-            "Học sinh 'Nguyễn Văn A' vừa báo lỗi ở bài nghe Test 3.",
-            "Có 3 học sinh mới đăng ký tài khoản.",
-            "Yêu cầu nâng cấp VIP từ user 'tranhieu@...'",
-        ];
-        let i = 0;
-        const interval = setInterval(() => {
-            addToast('info', msgs[i % msgs.length]);
-            i++;
-        }, 25000); // every 25 seconds
+        
+        const fetchNewLogs = async () => {
+            try {
+                const res = await fetch('/api/admin/logs');
+                if (!res.ok) return;
+                const logs = await res.json();
+                
+                if (!logs || logs.length === 0) return;
+                
+                const maxId = Math.max(...logs.map((l: any) => l.id));
+                
+                if (lastLogId.current === null) {
+                    // First load, just record the latest ID without toasting
+                    lastLogId.current = maxId;
+                } else {
+                    // Find new logs
+                    const newLogs = logs.filter((l: any) => l.id > (lastLogId.current as number));
+                    if (newLogs.length > 0) {
+                        newLogs.reverse().forEach((log: any) => {
+                            let title = "";
+                            let type: 'info' | 'success' | 'error' = 'info';
+                            
+                            if (log.type === 'TEACHER_UPGRADE_REQUEST') {
+                                title = "🎓 Có người xin làm Giáo viên";
+                            } else if (log.type === 'VIP_UPGRADE_REQUEST') {
+                                title = "🔥 Yêu cầu nâng cấp VIP";
+                            } else if (log.type === 'BUG_REPORT') {
+                                title = "🐛 Báo lỗi mới";
+                                type = 'error';
+                            } else {
+                                title = "🔔 Thông báo hệ thống";
+                            }
+                            
+                            addToast(type, `${title}: ${log.message.substring(0, 50)}...`);
+                        });
+                        lastLogId.current = maxId;
+                    }
+                }
+            } catch (e) {
+                // Ignore network errors during polling
+            }
+        };
+
+        fetchNewLogs(); // Initial fetch
+        const interval = setInterval(fetchNewLogs, 15000); // Poll every 15 seconds
         return () => clearInterval(interval);
     }, [status, session, addToast]);
 
