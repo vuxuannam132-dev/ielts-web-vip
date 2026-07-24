@@ -4,10 +4,12 @@ import { useSession } from "next-auth/react";
 import { useState } from "react";
 import { Loader2, KeyRound, User as UserIcon, ShieldCheck, Zap, GraduationCap, Send } from "lucide-react";
 import Link from "next/link";
+import { useToast } from "@/contexts/ToastContext";
 
 export default function AccountPage() {
     const { data: session, status } = useSession();
     const user = session?.user;
+    const { addToast } = useToast();
 
     const [currentPassword, setCurrentPassword] = useState("");
     const [newPassword, setNewPassword] = useState("");
@@ -84,13 +86,16 @@ export default function AccountPage() {
             });
             const data = await res.json();
             if (res.ok) {
+                addToast('success', "Đã gửi yêu cầu xin làm Giáo viên. Vui lòng chờ Ban quản trị duyệt!");
                 setTeacherReqMsg({ type: 'success', text: "Đã gửi yêu cầu thành công!" });
                 setTeacherReason("");
                 setTimeout(() => setShowTeacherModal(false), 2000);
             } else {
+                addToast('error', data.error || "Đã xảy ra lỗi.");
                 setTeacherReqMsg({ type: 'error', text: data.error || "Đã xảy ra lỗi." });
             }
         } catch (err) {
+            addToast('error', "Lỗi kết nối máy chủ.");
             setTeacherReqMsg({ type: 'error', text: "Lỗi kết nối máy chủ." });
         } finally {
             setTeacherReqLoading(false);

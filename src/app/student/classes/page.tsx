@@ -28,15 +28,46 @@ export default function StudentClassesPage() {
     const [memberships, setMemberships] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeClass, setActiveClass] = useState<any>(null);
+    const [inviteCode, setInviteCode] = useState("");
+    const [joining, setJoining] = useState(false);
+    const [joinMsg, setJoinMsg] = useState<{ok: boolean, text: string} | null>(null);
+
+    const fetchClasses = () => {
+        fetch("/api/student/classes")
+            .then(r => r.json())
+            .then(data => { if (Array.isArray(data)) { setMemberships(data); if (data.length && !activeClass) setActiveClass(data[0]); } })
+            .finally(() => setLoading(false));
+    };
 
     useEffect(() => {
-        if (status === "authenticated") {
-            fetch("/api/student/classes")
-                .then(r => r.json())
-                .then(data => { if (Array.isArray(data)) { setMemberships(data); if (data.length) setActiveClass(data[0]); } })
-                .finally(() => setLoading(false));
-        }
+        if (status === "authenticated") fetchClasses();
     }, [status]);
+
+    const handleJoinClass = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!inviteCode.trim()) return;
+        setJoining(true);
+        setJoinMsg(null);
+        try {
+            const res = await fetch("/api/teacher/join", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ inviteCode: inviteCode.trim().toUpperCase() })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                setJoinMsg({ ok: true, text: "Gửi yêu cầu tham gia thành công! Vui lòng chờ giáo viên duyệt." });
+                setInviteCode("");
+                fetchClasses();
+            } else {
+                setJoinMsg({ ok: false, text: data.error || "Có lỗi xảy ra" });
+            }
+        } catch {
+            setJoinMsg({ ok: false, text: "Lỗi kết nối máy chủ" });
+        } finally {
+            setJoining(false);
+        }
+    };
 
     if (status === "loading" || loading) {
         return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-blue-600" /></div>;
@@ -60,6 +91,20 @@ export default function StudentClassesPage() {
                         <GraduationCap className="h-14 w-14 text-slate-200 mx-auto mb-4" />
                         <h2 className="text-xl font-bold text-slate-700 mb-2">Bạn chưa trong lớp nào</h2>
                         <p className="text-slate-500 text-sm mb-6">Nhờ giáo viên thêm bạn vào lớp hoặc nhập mã mời từ giáo viên.</p>
+                        
+                        <form onSubmit={handleJoinClass} className="max-w-xs mx-auto mb-6 space-y-3">
+                            <input 
+                                value={inviteCode} onChange={e => setInviteCode(e.target.value)}
+                                placeholder="Nhập mã lớp (VD: CLS-XXXX)" 
+                                className="w-full border-2 border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:border-emerald-500 outline-none text-center font-mono uppercase" 
+                            />
+                            {joinMsg && (
+                                <p className={`text-sm ${joinMsg.ok ? 'text-emerald-600' : 'text-red-500'}`}>{joinMsg.text}</p>
+                            )}
+                            <button type="submit" disabled={joining || !inviteCode.trim()} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2.5 rounded-xl transition flex items-center justify-center">
+                                {joining ? <Loader2 className="h-4 w-4 animate-spin" /> : "Tham gia lớp"}
+                            </button>
+                        </form>
                         <Link href="/dashboard" className="text-blue-600 text-sm font-medium hover:underline">← Quay về Dashboard</Link>
                     </div>
                 ) : (
@@ -81,7 +126,22 @@ export default function StudentClassesPage() {
                                 </div>
                             ))}
                         </div>
-
+                        
+                        {/* Join Class Sidebar (if already has classes) */}
+                        <div className="bg-white rounded-xl border border-slate-200 p-4 mt-4">
+                            <h3 className="font-bold text-slate-900 text-sm mb-3">Tham gia lớp mới</h3>
+                            <form onSubmit={handleJoinClass} className="space-y-3">
+                                <input 
+                                    value={inviteCode} onChange={e => setInviteCode(e.target.value)}
+                                    placeholder="Nhập mã lớp..." 
+                                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-emerald-500 outline-none uppercase font-mono" 
+                                />
+                                {joinMsg && <p className={`text-xs ${joinMsg.ok ? 'text-emerald-600' : 'text-red-500'}`}>{joinMsg.text}</p>}
+                                <button type="submit" disabled={joining || !inviteCode.trim()} className="w-full bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 text-slate-600 font-medium py-2 rounded-lg transition text-sm flex items-center justify-center">
+                                    {joining ? <Loader2 className="h-4 w-4 animate-spin" /> : "Gửi yêu cầu"}
+                                </button>
+                            </form>
+                        </div>
                         {/* Class Detail */}
                         <div className="lg:col-span-2">
                             {activeClass && (

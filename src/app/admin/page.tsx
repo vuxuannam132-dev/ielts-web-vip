@@ -95,6 +95,7 @@ export default function AdminDashboard() {
                         { id: "users", label: "Quản lý người dùng", icon: Users },
                         { id: "content", label: "Quản lý bài tập", icon: FileText },
                         { id: "payment", label: "Thanh toán & Gói", icon: Banknote },
+                        { id: "requests", label: "Yêu cầu nâng cấp", icon: Activity },
                         { id: "bugs", label: "Báo lỗi", icon: Bug },
                         { id: "settings", label: "Cài đặt hệ thống", icon: Settings },
                     ].map(tab => (
@@ -115,8 +116,9 @@ export default function AdminDashboard() {
                 {activeTab === "dashboard" && <WelcomeView />}
                 {activeTab === "users" && <UsersManager />}
                 {activeTab === "payment" && <PaymentConfig />}
-                {activeTab === "settings" && <SystemSettings />}
-                {activeTab === "content" && <PracticeManager />}
+                { activeTab === "settings" && <SystemSettings /> }
+                { activeTab === "content" && <PracticeManager /> }
+                { activeTab === "requests" && <RequestsManager /> }
             </main>
         </div>
     );
@@ -845,6 +847,93 @@ function PracticeManager() {
                     </div>
                 ))}
             </div>
+        </div>
+    );
+}
+
+// ───────────────────────────────────────────────
+// REQUESTS MANAGER (Teacher Approval)
+// ───────────────────────────────────────────────
+function RequestsManager() {
+    const [requests, setRequests] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const { addToast } = useToast();
+
+    const fetchRequests = async () => {
+        setLoading(true);
+        try {
+            const res = await fetch('/api/admin/logs');
+            const data = await res.json();
+            if (Array.isArray(data)) {
+                // Filter logs that are TEACHER_UPGRADE_REQUEST and not yet processed
+                setRequests(data.filter(log => log.type === 'TEACHER_UPGRADE_REQUEST' && !log.message.startsWith('[Đã')));
+            }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchRequests();
+    }, []);
+
+    const handleAction = async (logId: string, userId: string, action: 'APPROVE' | 'REJECT') => {
+        if (!confirm(`Bạn có chắc muốn ${action === 'APPROVE' ? 'duyệt' : 'từ chối'} yêu cầu này?`)) return;
+        try {
+            const res = await fetch('/api/admin/approve-teacher', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ logId, userId, action, message: 'Yêu cầu làm Giáo viên' })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                addToast('success', `Đã ${action === 'APPROVE' ? 'duyệt' : 'từ chối'} thành công!`);
+                fetchRequests();
+            } else {
+                addToast('error', data.error || 'Lỗi hệ thống');
+            }
+        } catch (e) {
+            addToast('error', 'Lỗi kết nối');
+        }
+    };
+
+    if (loading) return <div className="text-center py-10"><Loader2 className="h-8 w-8 animate-spin mx-auto text-blue-600" /></div>;
+
+    return (
+        <div className="space-y-6 animate-in fade-in">
+            <h2 className="text-2xl font-bold text-slate-900 mb-6">Yêu cầu cấp quyền Giáo viên</h2>
+            {requests.length === 0 ? (
+                <div className="text-center p-12 bg-white rounded-2xl border border-slate-200">
+                    <p className="text-slate-500">Không có yêu cầu nào đang chờ xử lý.</p>
+                </div>
+            ) : (
+                <div className="grid gap-4">
+                    {requests.map(req => {
+                        const lines = req.message.split('\n');
+                        const email = lines.find((l: string) => l.startsWith('Email:'))?.replace('Email: ', '') || 'N/A';
+                        const reason = lines.find((l: string) => l.startsWith('Lý do'))?.replace('Lý do/Giới thiệu: ', '') || 'N/A';
+                        return (
+                            <div key={req.id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                <div>
+                                    <h3 className="font-bold text-slate-900">{email}</h3>
+                                    <p className="text-sm text-slate-500 mt-1">Lý do: {reason}</p>
+                                    <p className="text-xs text-slate-400 mt-2">Ngày gửi: {new Date(req.createdAt).toLocaleString('vi-VN')}</p>
+                                </div>
+                                <div className="flex gap-2 shrink-0">
+                                    <button onClick={() => handleAction(req.id, req.userId, 'REJECT')} className="px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg text-sm font-medium transition">
+                                        Từ chối
+                                    </button>
+                                    <button onClick={() => handleAction(req.id, req.userId, 'APPROVE')} className="px-4 py-2 bg-emerald-600 text-white hover:bg-emerald-700 rounded-lg text-sm font-medium transition">
+                                        Duyệt
+                                    </button>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
         </div>
     );
 }
