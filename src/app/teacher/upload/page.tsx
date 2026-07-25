@@ -104,16 +104,16 @@ export default function TeacherPracticeUpload() {
                 else if (parsed.speaking) content = parsed.speaking;
             }
             
-            if (parsed.title) setTitle(parsed.title);
-            if (parsed.difficulty) setDifficulty(parsed.difficulty);
+            if (content.title) setTitle(content.title);
+            if (content.difficulty) setDifficulty(content.difficulty);
             
-            let detectedSkill = parsed.skill?.toLowerCase();
+            let detectedSkill = content.skill?.toLowerCase();
             if (!detectedSkill) {
                 if (content.passages && Array.isArray(content.passages)) detectedSkill = "reading";
                 else if (content.parts || content.audioUrl || content.tapescript) detectedSkill = "listening";
                 else if (content.writing || content.type === "TASK1" || content.task1Prompt) detectedSkill = "writing";
                 else if (content.speaking || content.part1 || content.part2) detectedSkill = "speaking";
-                else detectedSkill = "reading";
+                else detectedSkill = skill;
             }
             
             setSkill(detectedSkill);
