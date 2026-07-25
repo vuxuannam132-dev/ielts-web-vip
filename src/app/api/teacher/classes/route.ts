@@ -7,6 +7,8 @@ function generateInviteCode(): string {
 }
 
 // GET: list teacher's classes
+export const dynamic = 'force-dynamic'
+
 export async function GET(req: NextRequest) {
     const session = await getSessionFromRequest(req);
     if (!session || (session.role !== "TEACHER" && session.role !== "ADMIN")) {

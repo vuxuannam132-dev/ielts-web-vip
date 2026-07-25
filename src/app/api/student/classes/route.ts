@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { getSessionFromRequest } from "@/lib/session";
 
 // GET: student views their classes with assignments
+export const dynamic = 'force-dynamic'
+
 export async function GET(req: NextRequest) {
     const session = await getSessionFromRequest(req);
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

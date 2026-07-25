@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { getSessionFromRequest } from "@/lib/session";
 
 // GET pending members for a class
+export const dynamic = 'force-dynamic'
+
 export async function GET(req: NextRequest) {
     const session = await getSessionFromRequest(req);
     if (!session || (session.role !== "TEACHER" && session.role !== "ADMIN")) {
