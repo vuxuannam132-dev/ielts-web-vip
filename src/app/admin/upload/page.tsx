@@ -93,7 +93,18 @@ export default function AdminPracticeUpload() {
     const handleJsonImport = () => {
         try {
             const parsed = JSON.parse(jsonImportText);
-            const content = parsed.content || parsed;
+            let content = parsed;
+
+            if (parsed[skill]) {
+                content = parsed[skill];
+            } else if (parsed.content) {
+                content = parsed.content;
+            } else {
+                if (parsed.reading) content = parsed.reading;
+                else if (parsed.listening) content = parsed.listening;
+                else if (parsed.writing) content = parsed.writing;
+                else if (parsed.speaking) content = parsed.speaking;
+            }
             
             if (parsed.title) setTitle(parsed.title);
             if (parsed.difficulty) setDifficulty(parsed.difficulty);
