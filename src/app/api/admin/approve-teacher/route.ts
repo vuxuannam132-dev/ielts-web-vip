@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
       await prisma.$transaction([
         prisma.user.update({
           where: { id: userId },
-          data: { role: 'TEACHER' }
+          data: { role: 'TEACHER', tier: 'TEACHER' }
         }),
         prisma.activityLog.update({
           where: { id: logId },
