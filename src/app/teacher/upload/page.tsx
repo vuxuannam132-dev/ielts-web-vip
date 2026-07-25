@@ -44,6 +44,13 @@ export default function TeacherPracticeUpload() {
     const [jsonImportText, setJsonImportText] = useState("");
 
     useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('import') === 'true') {
+            setShowJsonModal(true);
+        }
+    }, []);
+
+    useEffect(() => {
         fetch("/api/teacher/classes").then(r => r.json()).then(data => {
             if (Array.isArray(data)) { setClasses(data); if (data.length) setClassId(data[0].id); }
         });
@@ -312,6 +319,7 @@ export default function TeacherPracticeUpload() {
                                         <input type="file" accept="audio/*" onChange={handleAudioUpload} className="hidden" />
                                     </label>
                                 </div>
+                                {audioUrl && <audio controls src={audioUrl} className="mt-3 w-full h-10" />}
                             </div>
                         )}
 

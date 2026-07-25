@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Upload, Plus, Trash2, Save, Loader2, CheckCircle2, ArrowLeft, FileJson, X } from "lucide-react";
 import Link from "next/link";
 
@@ -42,6 +42,13 @@ export default function AdminPracticeUpload() {
     // JSON Import Modal
     const [showJsonModal, setShowJsonModal] = useState(false);
     const [jsonImportText, setJsonImportText] = useState("");
+
+    useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('import') === 'true') {
+            setShowJsonModal(true);
+        }
+    }, []);
 
     const addPart = () => {
         setParts(prev => [...prev, { title: `Part ${prev.length + 1}`, text: "", questions: [] }]);

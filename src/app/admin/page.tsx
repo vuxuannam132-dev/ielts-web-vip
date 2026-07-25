@@ -819,7 +819,7 @@ function PracticeManager() {
             <div className="flex justify-between items-center">
                 <h2 className="text-2xl font-bold">Bài tập (Practice Sets)</h2>
                 <div className="flex gap-3">
-                    <Link href="/admin/import" className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-emerald-700">
+                    <Link href="/admin/upload?import=true" className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-emerald-700">
                         <FileText className="h-4 w-4" /> Import JSON
                     </Link>
                     <Link href="/admin/upload" className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700">
