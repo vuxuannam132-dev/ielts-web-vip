@@ -53,9 +53,21 @@ export async function PATCH(req: NextRequest) {
             return NextResponse.json({ error: "Missing userId" }, { status: 400 });
         }
 
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+
         const data: any = {};
-        if (role) data.role = ["ADMIN", "USER", "TEACHER"].includes(role) ? role : "USER";
-        if (tier) data.tier = ["FREE", "PRO", "PREMIUM", "EDU", "TEACHER"].includes(tier) ? tier : "FREE";
+        
+        let newRole = role !== undefined ? (["ADMIN", "USER", "TEACHER"].includes(role) ? role : "USER") : user.role;
+        let newTier = tier !== undefined ? (["FREE", "PRO", "PREMIUM", "EDU", "TEACHER"].includes(tier) ? tier : "FREE") : user.tier;
+
+        if (role === 'TEACHER') newTier = 'TEACHER';
+        else if (tier === 'TEACHER') newRole = 'TEACHER';
+        else if (role === 'USER' && user.tier === 'TEACHER') newTier = 'FREE';
+        else if (tier && tier !== 'TEACHER' && user.role === 'TEACHER') newRole = 'USER';
+
+        if (newRole !== user.role) data.role = newRole;
+        if (newTier !== user.tier) data.tier = newTier;
         if (tierExpiresAt !== undefined) data.tierExpiresAt = tierExpiresAt ? new Date(tierExpiresAt) : null;
         if (isLocked !== undefined) data.isLocked = isLocked;
 
