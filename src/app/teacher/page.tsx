@@ -54,7 +54,12 @@ export default function TeacherDashboard() {
         if (res.ok) setAssignments(await res.json());
     };
 
-    useEffect(() => { if (status === "authenticated") fetchClasses(); }, [status]);
+    useEffect(() => { 
+        if (status === "authenticated") fetchClasses(); 
+        const urlParams = new URLSearchParams(window.location.search);
+        const t = urlParams.get('tab');
+        if (t === 'assignments' || t === 'students') setTab(t);
+    }, [status]);
     useEffect(() => { if (activeClass) fetchAssignments(activeClass.id); }, [activeClass]);
 
     if (status === "loading") return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-blue-600" /></div>;

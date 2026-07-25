@@ -13,6 +13,12 @@ export default function AdminDashboard() {
 
     const lastLogId = useRef<number | null>(null);
 
+    useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const t = urlParams.get('tab');
+        if (t) setActiveTab(t);
+    }, []);
+
     // Fetch and show real notifications for Admin
     useEffect(() => {
         if (status !== "authenticated" || (session?.user as any)?.role !== "ADMIN") return;

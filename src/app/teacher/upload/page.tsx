@@ -1,12 +1,12 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Upload, Plus, Trash2, Save, Loader2, CheckCircle2, ArrowLeft, GraduationCap } from "lucide-react";
+import { Upload, Plus, Trash2, Save, Loader2, CheckCircle2, ArrowLeft, GraduationCap, FileJson, X } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 
 interface Question {
-    text: string; type: "fill" | "mcq" | "tf"; answer: string; options: string[];
+    text: string; type: "fill" | "mcq" | "tf" | "multi-mcq" | "matching"; answer: string; options: string[]; answers?: string[];
 }
 interface Part {
     title: string; text: string; questions: Question[];
@@ -39,6 +39,10 @@ export default function TeacherPracticeUpload() {
     // Writing
     const [writing, setWriting] = useState({ task1Prompt: "", task1Image: "", task2Prompt: "" });
 
+    // JSON Import Modal
+    const [showJsonModal, setShowJsonModal] = useState(false);
+    const [jsonImportText, setJsonImportText] = useState("");
+
     useEffect(() => {
         fetch("/api/teacher/classes").then(r => r.json()).then(data => {
             if (Array.isArray(data)) { setClasses(data); if (data.length) setClassId(data[0].id); }
@@ -50,8 +54,66 @@ export default function TeacherPracticeUpload() {
     const addQuestion = (pIdx: number) => { const np = [...parts]; np[pIdx].questions.push({ text: "", type: "fill", answer: "", options: ["", "", "", ""] }); setParts(np); };
     const removeQuestion = (pIdx: number, qIdx: number) => { const np = [...parts]; np[pIdx].questions = np[pIdx].questions.filter((_, i) => i !== qIdx); setParts(np); };
     const updatePart = (pIdx: number, field: "title" | "text", val: string) => { const np = [...parts]; np[pIdx][field] = val; setParts(np); };
-    const updateQuestion = (pIdx: number, qIdx: number, field: keyof Question, val: string | string[]) => { const np = [...parts]; np[pIdx].questions[qIdx] = { ...np[pIdx].questions[qIdx], [field]: val }; setParts(np); };
+    const updateQuestion = (pIdx: number, qIdx: number, field: keyof Question, val: any) => { const np = [...parts]; np[pIdx].questions[qIdx] = { ...np[pIdx].questions[qIdx], [field]: val }; setParts(np); };
     const updateOption = (pIdx: number, qIdx: number, optIdx: number, val: string) => { const np = [...parts]; const opts = [...np[pIdx].questions[qIdx].options]; opts[optIdx] = val; np[pIdx].questions[qIdx].options = opts; setParts(np); };
+
+    const handleAudioUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const formData = new FormData();
+        formData.append("file", file);
+        setSaving(true);
+        try {
+            const res = await fetch("/api/admin/upload-audio", {
+                method: "POST",
+                body: formData
+            });
+            const data = await res.json();
+            if (data.success) {
+                setAudioUrl(data.url);
+            } else {
+                alert("Lỗi upload: " + data.error);
+            }
+        } catch (err) {
+            alert("Lỗi kết nối khi upload.");
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleJsonImport = () => {
+        try {
+            const parsed = JSON.parse(jsonImportText);
+            const content = parsed.content || parsed;
+            
+            if (parsed.title) setTitle(parsed.title);
+            if (parsed.difficulty) setDifficulty(parsed.difficulty);
+            
+            let detectedSkill = parsed.skill?.toLowerCase();
+            if (!detectedSkill) {
+                if (content.passages && Array.isArray(content.passages)) detectedSkill = "reading";
+                else if (content.parts || content.audioUrl || content.tapescript) detectedSkill = "listening";
+                else if (content.writing || content.type === "TASK1" || content.task1Prompt) detectedSkill = "writing";
+                else if (content.speaking || content.part1 || content.part2) detectedSkill = "speaking";
+                else detectedSkill = "reading";
+            }
+            
+            setSkill(detectedSkill);
+            
+            if (detectedSkill === "reading" && content.passages) setParts(content.passages);
+            if (detectedSkill === "listening") {
+                if (content.audioUrl) setAudioUrl(content.audioUrl);
+                if (content.parts) setParts(content.parts);
+            }
+            if (detectedSkill === "writing" && content.writing) setWriting(content.writing);
+            if (detectedSkill === "speaking" && content.speaking) setSpeaking(content.speaking);
+            
+            setShowJsonModal(false);
+            setJsonImportText("");
+        } catch (e) {
+            alert("JSON không hợp lệ! Vui lòng kiểm tra lại cú pháp.");
+        }
+    };
 
     const handleSave = async () => {
         if (!title.trim()) { setError("Vui lòng nhập tiêu đề bộ đề."); return; }
@@ -94,14 +156,17 @@ export default function TeacherPracticeUpload() {
 
                 {/* Header */}
                 <div className="flex items-center gap-3 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                    <Link href="/teacher" className="p-2 hover:bg-slate-100 rounded-lg"><ArrowLeft className="h-5 w-5 text-slate-600" /></Link>
+                    <Link href="/teacher?tab=assignments" className="p-2 hover:bg-slate-100 rounded-lg"><ArrowLeft className="h-5 w-5 text-slate-600" /></Link>
                     <div className="h-10 w-10 bg-gradient-to-br from-violet-600 to-purple-600 rounded-xl flex items-center justify-center shadow-md">
                         <GraduationCap className="h-5 w-5 text-white" />
                     </div>
-                    <div>
+                    <div className="flex-1">
                         <h1 className="text-xl font-bold text-slate-900">Tạo bộ đề luyện tập</h1>
                         <p className="text-xs text-slate-500">Soạn bài tập chuẩn IELTS cho học sinh của bạn</p>
                     </div>
+                    <button onClick={() => setShowJsonModal(true)} className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg text-sm font-semibold transition">
+                        <FileJson className="h-4 w-4" /> Nhập từ JSON
+                    </button>
                 </div>
 
                 {/* Class & Visibility Selector */}
@@ -238,9 +303,15 @@ export default function TeacherPracticeUpload() {
                         {skill === "listening" && (
                             <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
                                 <label className="block text-sm font-bold text-slate-800 mb-2">🔗 Link File Audio MP3 (Bắt buộc)</label>
-                                <input value={audioUrl} onChange={e => setAudioUrl(e.target.value)}
-                                    className="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-violet-500"
-                                    placeholder="https://example.com/audio.mp3" />
+                                <div className="flex gap-3 items-center">
+                                    <input value={audioUrl} onChange={e => setAudioUrl(e.target.value)}
+                                        className="flex-1 border border-slate-300 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-violet-500"
+                                        placeholder="https://example.com/audio.mp3" />
+                                    <label className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2.5 rounded-xl cursor-pointer text-sm font-semibold transition">
+                                        <Upload className="h-4 w-4" /> Tải MP3 lên
+                                        <input type="file" accept="audio/*" onChange={handleAudioUpload} className="hidden" />
+                                    </label>
+                                </div>
                             </div>
                         )}
 
@@ -342,6 +413,32 @@ export default function TeacherPracticeUpload() {
                     </div>
                 </div>
             </div>
+            {/* JSON Import Modal */}
+            {showJsonModal && (
+                <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl">
+                        <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                            <h3 className="font-bold text-slate-800 flex items-center gap-2"><FileJson className="h-5 w-5 text-violet-600"/> Nhập Dữ Liệu Từ JSON</h3>
+                            <button onClick={() => setShowJsonModal(false)} className="p-1 hover:bg-slate-200 rounded-lg"><X className="h-5 w-5 text-slate-500"/></button>
+                        </div>
+                        <div className="p-6">
+                            <p className="text-sm text-slate-500 mb-3">Dán đoạn mã JSON chứa nội dung bài tập của bạn vào đây. Hệ thống sẽ tự động phân tích và điền vào các ô nhập liệu.</p>
+                            <textarea 
+                                value={jsonImportText} 
+                                onChange={e => setJsonImportText(e.target.value)}
+                                className="w-full h-64 border border-slate-300 rounded-xl p-4 font-mono text-sm text-slate-700 bg-slate-50 focus:border-violet-500 outline-none resize-none"
+                                placeholder='{"title": "Test 1", "skill": "reading", "passages": [...]}'
+                            />
+                        </div>
+                        <div className="p-4 border-t border-slate-100 flex justify-end gap-3 bg-slate-50">
+                            <button onClick={() => setShowJsonModal(false)} className="px-5 py-2 text-slate-600 font-semibold hover:bg-slate-200 rounded-xl transition text-sm">Hủy</button>
+                            <button onClick={handleJsonImport} disabled={!jsonImportText.trim()} className="px-5 py-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white font-semibold rounded-xl transition text-sm flex items-center gap-2">
+                                <CheckCircle2 className="h-4 w-4" /> Xác nhận Nhập
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

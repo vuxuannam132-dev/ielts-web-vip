@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Upload, Plus, Trash2, Save, Loader2, CheckCircle2, ArrowLeft } from "lucide-react";
+import { Upload, Plus, Trash2, Save, Loader2, CheckCircle2, ArrowLeft, FileJson, X } from "lucide-react";
 import Link from "next/link";
 
 interface Question {
@@ -38,6 +38,10 @@ export default function AdminPracticeUpload() {
 
     // Writing
     const [writing, setWriting] = useState({ task1Prompt: "", task1Image: "", task2Prompt: "" });
+
+    // JSON Import Modal
+    const [showJsonModal, setShowJsonModal] = useState(false);
+    const [jsonImportText, setJsonImportText] = useState("");
 
     const addPart = () => {
         setParts(prev => [...prev, { title: `Part ${prev.length + 1}`, text: "", questions: [] }]);
@@ -77,6 +81,40 @@ export default function AdminPracticeUpload() {
         newOptions[optIdx] = val;
         newParts[pIdx].questions[qIdx].options = newOptions;
         setParts(newParts);
+    };
+
+    const handleJsonImport = () => {
+        try {
+            const parsed = JSON.parse(jsonImportText);
+            const content = parsed.content || parsed;
+            
+            if (parsed.title) setTitle(parsed.title);
+            if (parsed.difficulty) setDifficulty(parsed.difficulty);
+            
+            let detectedSkill = parsed.skill?.toLowerCase();
+            if (!detectedSkill) {
+                if (content.passages && Array.isArray(content.passages)) detectedSkill = "reading";
+                else if (content.parts || content.audioUrl || content.tapescript) detectedSkill = "listening";
+                else if (content.writing || content.type === "TASK1" || content.task1Prompt) detectedSkill = "writing";
+                else if (content.speaking || content.part1 || content.part2) detectedSkill = "speaking";
+                else detectedSkill = "reading";
+            }
+            
+            setSkill(detectedSkill);
+            
+            if (detectedSkill === "reading" && content.passages) setParts(content.passages);
+            if (detectedSkill === "listening") {
+                if (content.audioUrl) setAudioUrl(content.audioUrl);
+                if (content.parts) setParts(content.parts);
+            }
+            if (detectedSkill === "writing" && content.writing) setWriting(content.writing);
+            if (detectedSkill === "speaking" && content.speaking) setSpeaking(content.speaking);
+            
+            setShowJsonModal(false);
+            setJsonImportText("");
+        } catch (e) {
+            alert("JSON không hợp lệ! Vui lòng kiểm tra lại cú pháp.");
+        }
     };
 
     const handleSave = async () => {
@@ -147,12 +185,14 @@ export default function AdminPracticeUpload() {
 
                 {/* Header */}
                 <div className="flex items-center gap-3 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                    <Link href="/admin" className="p-2 hover:bg-slate-100 rounded-lg"><ArrowLeft className="h-5 w-5 text-slate-600" /></Link>
-                    <Upload className="h-6 w-6 text-blue-600" />
-                    <div>
-                        <h1 className="text-2xl font-bold text-slate-900">Upload Bài Luyện Tập (Chuẩn Form IELTS)</h1>
-                        <p className="text-sm text-slate-500">Thêm bài tập chia theo cấu trúc thi thật</p>
+                    <Link href="/admin?tab=practice" className="p-2 hover:bg-slate-100 rounded-lg"><ArrowLeft className="h-5 w-5 text-slate-600" /></Link>
+                    <div className="flex-1">
+                        <h1 className="text-xl font-bold text-slate-900">Upload Bộ Đề Mới</h1>
+                        <p className="text-xs text-slate-500">Soạn bài tập chuẩn IELTS cho hệ thống</p>
                     </div>
+                    <button onClick={() => setShowJsonModal(true)} className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg text-sm font-semibold transition">
+                        <FileJson className="h-4 w-4" /> Nhập từ JSON
+                    </button>
                 </div>
 
                 {/* Skill Selector */}
@@ -367,6 +407,32 @@ export default function AdminPracticeUpload() {
                 </div>
 
             </div>
+            {/* JSON Import Modal */}
+            {showJsonModal && (
+                <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl">
+                        <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                            <h3 className="font-bold text-slate-800 flex items-center gap-2"><FileJson className="h-5 w-5 text-violet-600"/> Nhập Dữ Liệu Từ JSON</h3>
+                            <button onClick={() => setShowJsonModal(false)} className="p-1 hover:bg-slate-200 rounded-lg"><X className="h-5 w-5 text-slate-500"/></button>
+                        </div>
+                        <div className="p-6">
+                            <p className="text-sm text-slate-500 mb-3">Dán đoạn mã JSON chứa nội dung bài tập của bạn vào đây. Hệ thống sẽ tự động phân tích và điền vào các ô nhập liệu.</p>
+                            <textarea 
+                                value={jsonImportText} 
+                                onChange={e => setJsonImportText(e.target.value)}
+                                className="w-full h-64 border border-slate-300 rounded-xl p-4 font-mono text-sm text-slate-700 bg-slate-50 focus:border-violet-500 outline-none resize-none"
+                                placeholder='{"title": "Test 1", "skill": "reading", "passages": [...]}'
+                            />
+                        </div>
+                        <div className="p-4 border-t border-slate-100 flex justify-end gap-3 bg-slate-50">
+                            <button onClick={() => setShowJsonModal(false)} className="px-5 py-2 text-slate-600 font-semibold hover:bg-slate-200 rounded-xl transition text-sm">Hủy</button>
+                            <button onClick={handleJsonImport} disabled={!jsonImportText.trim()} className="px-5 py-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white font-semibold rounded-xl transition text-sm flex items-center gap-2">
+                                <CheckCircle2 className="h-4 w-4" /> Xác nhận Nhập
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
