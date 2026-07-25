@@ -107,10 +107,28 @@ export default function TeacherPracticeUpload() {
             
             setSkill(detectedSkill);
             
-            if (detectedSkill === "reading" && content.passages) setParts(content.passages);
+            if (detectedSkill === "reading" && content.passages) {
+                const safePassages = content.passages.map((p: any) => ({
+                    ...p,
+                    questions: p.questions?.map((q: any) => ({
+                        ...q,
+                        options: q.options || ["", "", "", ""]
+                    })) || []
+                }));
+                setParts(safePassages);
+            }
             if (detectedSkill === "listening") {
                 if (content.audioUrl) setAudioUrl(content.audioUrl);
-                if (content.parts) setParts(content.parts);
+                if (content.parts) {
+                    const safeParts = content.parts.map((p: any) => ({
+                        ...p,
+                        questions: p.questions?.map((q: any) => ({
+                            ...q,
+                            options: q.options || ["", "", "", ""]
+                        })) || []
+                    }));
+                    setParts(safeParts);
+                }
             }
             if (detectedSkill === "writing" && content.writing) setWriting(content.writing);
             if (detectedSkill === "speaking" && content.speaking) setSpeaking(content.speaking);

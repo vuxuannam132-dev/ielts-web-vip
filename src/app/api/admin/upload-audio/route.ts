@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionFromRequest } from '@/lib/session';
-import fs from 'fs';
-import path from 'path';
 
 export async function POST(req: NextRequest) {
     try {
         const session = await getSessionFromRequest(req);
-        if (!session?.email || session.role !== 'ADMIN') {
+        if (!session?.email || !['ADMIN', 'TEACHER'].includes(session.role as string)) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
@@ -18,17 +16,11 @@ export async function POST(req: NextRequest) {
         }
 
         const buffer = Buffer.from(await file.arrayBuffer());
-        const filename = `${Date.now()}-${(file as any).name || 'audio.mp3'}`.replace(/\s+/g, '-');
-        
-        const uploadDir = path.join(process.cwd(), 'public', 'uploads');
-        if (!fs.existsSync(uploadDir)) {
-            fs.mkdirSync(uploadDir, { recursive: true });
-        }
+        const base64 = buffer.toString('base64');
+        const mimeType = file.type || 'audio/mpeg';
+        const dataUri = `data:${mimeType};base64,${base64}`;
 
-        const filepath = path.join(uploadDir, filename);
-        fs.writeFileSync(filepath, buffer);
-
-        return NextResponse.json({ success: true, url: `/uploads/${filename}` });
+        return NextResponse.json({ success: true, url: dataUri });
 
     } catch (error: any) {
         console.error('Upload error:', error);

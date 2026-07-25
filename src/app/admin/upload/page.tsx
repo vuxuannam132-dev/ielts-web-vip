@@ -109,10 +109,28 @@ export default function AdminPracticeUpload() {
             
             setSkill(detectedSkill);
             
-            if (detectedSkill === "reading" && content.passages) setParts(content.passages);
+            if (detectedSkill === "reading" && content.passages) {
+                const safePassages = content.passages.map((p: any) => ({
+                    ...p,
+                    questions: p.questions?.map((q: any) => ({
+                        ...q,
+                        options: q.options || ["", "", "", ""]
+                    })) || []
+                }));
+                setParts(safePassages);
+            }
             if (detectedSkill === "listening") {
                 if (content.audioUrl) setAudioUrl(content.audioUrl);
-                if (content.parts) setParts(content.parts);
+                if (content.parts) {
+                    const safeParts = content.parts.map((p: any) => ({
+                        ...p,
+                        questions: p.questions?.map((q: any) => ({
+                            ...q,
+                            options: q.options || ["", "", "", ""]
+                        })) || []
+                    }));
+                    setParts(safeParts);
+                }
             }
             if (detectedSkill === "writing" && content.writing) setWriting(content.writing);
             if (detectedSkill === "speaking" && content.speaking) setSpeaking(content.speaking);
@@ -192,7 +210,7 @@ export default function AdminPracticeUpload() {
 
                 {/* Header */}
                 <div className="flex items-center gap-3 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                    <Link href="/admin?tab=practice" className="p-2 hover:bg-slate-100 rounded-lg"><ArrowLeft className="h-5 w-5 text-slate-600" /></Link>
+                    <Link href="/admin?tab=content" className="p-2 hover:bg-slate-100 rounded-lg"><ArrowLeft className="h-5 w-5 text-slate-600" /></Link>
                     <div className="flex-1">
                         <h1 className="text-xl font-bold text-slate-900">Upload Bộ Đề Mới</h1>
                         <p className="text-xs text-slate-500">Soạn bài tập chuẩn IELTS cho hệ thống</p>
