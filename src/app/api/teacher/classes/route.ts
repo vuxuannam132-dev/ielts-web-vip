@@ -20,7 +20,6 @@ export async function GET(req: NextRequest) {
         include: {
             _count: { select: { members: { where: { status: "APPROVED" } } } },
             members: {
-                where: { status: "APPROVED" },
                 include: {
                     user: {
                         select: {
@@ -30,7 +29,6 @@ export async function GET(req: NextRequest) {
                         }
                     }
                 },
-                take: 50,
             }
         },
         orderBy: { createdAt: "desc" }
