@@ -88,7 +88,7 @@ export default function TeacherPracticeUpload() {
         }
     };
 
-    const handleJsonImport = () => {
+    const handleJsonImport = async () => {
         try {
             const parsed = JSON.parse(jsonImportText);
             
