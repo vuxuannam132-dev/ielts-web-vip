@@ -91,153 +91,100 @@ export default function AdminPracticeUpload() {
         setParts(newParts);
     };
 
-    const applyParsedData = async (parsed: any) => {
-            
-            // Normalize parsed to an object of skills
-            let skillsObj: any = {};
-            if (Array.isArray(parsed)) {
-                parsed.forEach(item => {
-                    if (item.skill) {
-                        skillsObj[item.skill.toLowerCase()] = item;
-                    }
-                });
-            } else {
-                skillsObj = {
-                    reading: parsed.reading,
-                    listening: parsed.listening,
-                    writing: parsed.writing,
-                    speaking: parsed.speaking
-                };
-            }
-            
-            // AUTO COMBO DETECTION
-            if (skillsObj.reading && skillsObj.listening && skillsObj.writing && skillsObj.speaking) {
-                if (window.confirm("Hệ thống phát hiện JSON chứa trọn bộ 4 kỹ năng.\nBạn có muốn tự động tạo và lưu cả 4 bài tập ngay lập tức không?")) {
-                    const baseTitle = title.trim() || parsed.title || "Bộ đề Combo";
-                    const baseDiff = difficulty || parsed.difficulty || "Medium";
-                    
-                    const pClassId = null;
-                    
-                    try {
-                        const skillsToSave = ['reading', 'listening', 'writing', 'speaking'];
-                        for (const s of skillsToSave) {
-                            let sTitle = baseTitle;
-                            if (skillsObj[s] && skillsObj[s].title) {
-                                sTitle = baseTitle + " - " + s.toUpperCase();
-                            }
-                            
-                            const apiEndpoint = window.location.pathname.includes('/admin') ? '/api/admin/practice' : '/api/teacher/practice';
-                            const payloadContent = skillsObj[s].content || skillsObj[s];
+    const [importStatus, setImportStatus] = useState<"" | "success" | "error">("");
+    const [importMessage, setImportMessage] = useState("");
 
-                            await fetch(apiEndpoint, {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({
-                                    skill: s,
-                                    title: sTitle,
-                                    difficulty: skillsObj[s]?.difficulty || baseDiff,
-                                    contentJSON: payloadContent,
-                                    classId: pClassId
-                                })
-                            });
-                        }
-                        alert("🎉 Đã tạo thành công 4 bài tập riêng biệt!");
-                        setShowJsonModal(false);
-                        setJsonImportText("");
-                        window.location.href = window.location.pathname.includes('/admin') ? "/admin" : "/teacher?tab=assignments";
-                        return;
-                    } catch (e) {
-                        alert("Có lỗi xảy ra khi lưu tự động.");
-                        return;
-                    }
-                }
-            }
+    const applyParsedData = (parsed: any) => {
+        let content = parsed;
+        let detectedSkill = "";
 
-            let content = parsed;
-            let detectedSkill = "";
-            
-            if (Array.isArray(parsed)) {
-                let matched = parsed.find(item => item.skill?.toLowerCase() === skill);
-                if (!matched && parsed.length > 0) matched = parsed[0];
-                if (matched) {
-                    content = matched.content || matched;
-                    if (matched.title && !title.trim()) setTitle(matched.title);
-                    if (matched.difficulty && !difficulty) setDifficulty(matched.difficulty);
-                    detectedSkill = matched.skill?.toLowerCase();
-                }
+        if (Array.isArray(parsed)) {
+            let matched = parsed.find(item => item.skill?.toLowerCase() === skill);
+            if (!matched && parsed.length > 0) matched = parsed[0];
+            if (matched) {
+                content = matched.content || matched;
+                if (matched.title && !title.trim()) setTitle(matched.title);
+                if (matched.difficulty && !difficulty) setDifficulty(matched.difficulty);
+                detectedSkill = matched.skill?.toLowerCase();
+            }
+        } else {
+            if (parsed[skill]) {
+                content = parsed[skill].content || parsed[skill];
+                if (parsed[skill].title && !title.trim()) setTitle(parsed[skill].title);
+                if (parsed[skill].difficulty && !difficulty) setDifficulty(parsed[skill].difficulty);
+                detectedSkill = parsed[skill].skill?.toLowerCase();
+            } else if (parsed.content) {
+                content = parsed.content;
             } else {
-                if (parsed[skill]) {
-                    content = parsed[skill].content || parsed[skill];
-                    if (parsed[skill].title && !title.trim()) setTitle(parsed[skill].title);
-                    if (parsed[skill].difficulty && !difficulty) setDifficulty(parsed[skill].difficulty);
-                    detectedSkill = parsed[skill].skill?.toLowerCase();
-                } else if (parsed.content) {
-                    content = parsed.content;
-                } else {
-                    if (parsed.reading) { content = parsed.reading.content || parsed.reading; detectedSkill = "reading"; }
-                    else if (parsed.listening) { content = parsed.listening.content || parsed.listening; detectedSkill = "listening"; }
-                    else if (parsed.writing) { content = parsed.writing.content || parsed.writing; detectedSkill = "writing"; }
-                    else if (parsed.speaking) { content = parsed.speaking.content || parsed.speaking; detectedSkill = "speaking"; }
-                }
+                if (parsed.reading) { content = parsed.reading.content || parsed.reading; detectedSkill = "reading"; }
+                else if (parsed.listening) { content = parsed.listening.content || parsed.listening; detectedSkill = "listening"; }
+                else if (parsed.writing) { content = parsed.writing.content || parsed.writing; detectedSkill = "writing"; }
+                else if (parsed.speaking) { content = parsed.speaking.content || parsed.speaking; detectedSkill = "speaking"; }
             }
-            
-            if (content.title && !title.trim()) setTitle(content.title);
-            if (content.difficulty && !difficulty) setDifficulty(content.difficulty);
-            
-            if (!detectedSkill) detectedSkill = content.skill?.toLowerCase();
-            
-            if (!detectedSkill) {
-                if (content.passages && Array.isArray(content.passages)) detectedSkill = "reading";
-                else if (content.parts || content.audioUrl || content.tapescript) detectedSkill = "listening";
-                else if (content.writing || content.type === "TASK1" || content.task1Prompt) detectedSkill = "writing";
-                else if (content.speaking || content.part1 || content.part2) detectedSkill = "speaking";
-                else detectedSkill = skill;
-            }
-            
-            setSkill(detectedSkill);
-            
-            if (detectedSkill === "reading" && content.passages) {
-                const safePassages = content.passages.map((p: any) => ({
+        }
+
+        if (content.title && !title.trim()) setTitle(content.title);
+        if (content.difficulty && !difficulty) setDifficulty(content.difficulty);
+
+        if (!detectedSkill) detectedSkill = content.skill?.toLowerCase();
+
+        if (!detectedSkill) {
+            if (content.passages && Array.isArray(content.passages)) detectedSkill = "reading";
+            else if (content.parts || content.audioUrl || content.tapescript) detectedSkill = "listening";
+            else if (content.writing || content.type === "TASK1" || content.task1Prompt) detectedSkill = "writing";
+            else if (content.speaking || content.part1 || content.part2) detectedSkill = "speaking";
+            else detectedSkill = skill;
+        }
+
+        setSkill(detectedSkill);
+
+        if (detectedSkill === "reading" && content.passages) {
+            const safePassages = content.passages.map((p: any) => ({
+                ...p,
+                questions: p.questions?.map((q: any) => ({
+                    ...q,
+                    options: q.options || ["", "", "", ""]
+                })) || []
+            }));
+            setParts(safePassages);
+        }
+        if (detectedSkill === "listening") {
+            if (content.audioUrl) setAudioUrl(content.audioUrl);
+            if (content.parts) {
+                const safeParts = content.parts.map((p: any) => ({
                     ...p,
                     questions: p.questions?.map((q: any) => ({
                         ...q,
                         options: q.options || ["", "", "", ""]
                     })) || []
                 }));
-                setParts(safePassages);
+                setParts(safeParts);
             }
-            if (detectedSkill === "listening") {
-                if (content.audioUrl) setAudioUrl(content.audioUrl);
-                if (content.parts) {
-                    const safeParts = content.parts.map((p: any) => ({
-                        ...p,
-                        questions: p.questions?.map((q: any) => ({
-                            ...q,
-                            options: q.options || ["", "", "", ""]
-                        })) || []
-                    }));
-                    setParts(safeParts);
-                }
-            }
-            if (detectedSkill === "writing" && content.writing) setWriting(content.writing);
-            if (detectedSkill === "speaking" && content.speaking) setSpeaking(content.speaking);
-            
-            setShowJsonModal(false);
-            setJsonImportText("");
+        }
+        if (detectedSkill === "writing" && content.writing) setWriting(content.writing);
+        if (detectedSkill === "speaking" && content.speaking) setSpeaking(content.speaking);
+
+        setShowJsonModal(false);
+        setJsonImportText("");
     };
 
-    const handleJsonImport = async () => {
+    const handleJsonImport = () => {
+        setImportStatus(""); setImportMessage("");
         try {
             const parsed = JSON.parse(jsonImportText);
-            await applyParsedData(parsed);
+            applyParsedData(parsed);
+            setImportStatus("success");
+            setImportMessage("Đã điền dữ liệu vào form. Vui lòng kiểm tra và bấm Xuất bản.");
         } catch (e) {
-            alert("JSON không hợp lệ! Vui lòng kiểm tra lại cú pháp hoặc thử dùng tính năng AI Smart Import.");
+            setImportStatus("error");
+            setImportMessage("JSON không hợp lệ. Hãy thử dùng AI chuyển đổi.");
         }
     };
 
     const handleAIImport = async () => {
         if (!jsonImportText.trim()) return;
         setIsParsingAI(true);
+        setImportStatus(""); setImportMessage("");
         try {
             const res = await fetch("/api/ai/parse-practice", {
                 method: "POST",
@@ -246,12 +193,16 @@ export default function AdminPracticeUpload() {
             });
             const d = await res.json();
             if (res.ok && d.success) {
-                await applyParsedData(d.data);
+                applyParsedData(d.data);
+                setImportStatus("success");
+                setImportMessage("AI đã phân tích thành công. Vui lòng kiểm tra nội dung bên dưới rồi bấm Xuất bản.");
             } else {
-                alert("AI không thể phân tích văn bản này: " + (d.error || "Lỗi không xác định"));
+                setImportStatus("error");
+                setImportMessage(d.error || "AI không thể phân tích nội dung này.");
             }
         } catch (e) {
-            alert("Lỗi kết nối khi gọi AI.");
+            setImportStatus("error");
+            setImportMessage("Lỗi kết nối. Vui lòng thử lại.");
         } finally {
             setIsParsingAI(false);
         }
@@ -334,6 +285,15 @@ export default function AdminPracticeUpload() {
                         <Sparkles className="h-4 w-4" /> Smart Import
                     </button>
                 </div>
+
+                {/* Import Success Banner */}
+                {importStatus === "success" && (
+                    <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 p-4 rounded-xl">
+                        <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
+                        <p className="text-sm text-emerald-800 font-medium">{importMessage}</p>
+                        <button onClick={() => { setImportStatus(""); setImportMessage(""); }} className="ml-auto text-emerald-400 hover:text-emerald-600"><X className="h-4 w-4" /></button>
+                    </div>
+                )}
 
                 {/* Skill Selector */}
                 <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
@@ -552,18 +512,21 @@ export default function AdminPracticeUpload() {
                 <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50">
                     <div className="bg-white rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl">
                         <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-                            <h3 className="font-bold text-slate-800 flex items-center gap-2"><Sparkles className="h-5 w-5 text-blue-600"/> Nhập Liệu Thông Minh (AI)</h3>
-                            <button onClick={() => setShowJsonModal(false)} className="p-1 hover:bg-slate-200 rounded-lg"><X className="h-5 w-5 text-slate-500"/></button>
+                            <h3 className="font-bold text-slate-800 flex items-center gap-2"><Sparkles className="h-5 w-5 text-blue-600"/> Smart Import</h3>
+                            <button onClick={() => { setShowJsonModal(false); setImportStatus(""); setImportMessage(""); }} className="p-1 hover:bg-slate-200 rounded-lg"><X className="h-5 w-5 text-slate-500"/></button>
                         </div>
                         <div className="p-6 relative">
                             {isParsingAI && (
                                 <div className="absolute inset-0 z-10 bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center rounded-b-2xl">
                                     <Loader2 className="h-10 w-10 text-blue-600 animate-spin mb-4" />
-                                    <p className="text-blue-700 font-semibold animate-pulse text-lg">Thầy cô vui lòng chờ AI phân tích và up bài...</p>
+                                    <p className="text-blue-700 font-semibold animate-pulse text-lg">Đang phân tích nội dung...</p>
                                     <p className="text-slate-500 text-sm mt-2">Quá trình này có thể mất vài giây tuỳ thuộc vào độ dài nội dung</p>
                                 </div>
                             )}
-                            <p className="text-sm text-slate-500 mb-3">Dán <b>đoạn văn bản thô</b> (kèm câu hỏi), bài tập copy từ Word, hoặc đoạn JSON bị lỗi vào đây. AI sẽ tự động phân tích cấu trúc, nhận diện kỹ năng và điền vào form chuẩn.</p>
+                            <p className="text-sm text-slate-500 mb-3">Dán <b>đoạn văn bản thô</b> (kèm câu hỏi), bài tập copy từ Word, hoặc đoạn JSON vào đây. AI sẽ tự động phân tích và điền vào form soạn thủ công để bạn kiểm tra trước khi lưu.</p>
+                            {importStatus === "error" && (
+                                <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">{importMessage}</div>
+                            )}
                             <textarea 
                                 value={jsonImportText} 
                                 onChange={e => setJsonImportText(e.target.value)}
@@ -573,7 +536,7 @@ export default function AdminPracticeUpload() {
                             />
                         </div>
                         <div className="p-4 border-t border-slate-100 flex justify-end gap-3 bg-slate-50">
-                            <button onClick={() => setShowJsonModal(false)} disabled={isParsingAI} className="px-5 py-2 text-slate-600 font-semibold hover:bg-slate-200 rounded-xl transition text-sm">Hủy</button>
+                            <button onClick={() => { setShowJsonModal(false); setImportStatus(""); setImportMessage(""); }} disabled={isParsingAI} className="px-5 py-2 text-slate-600 font-semibold hover:bg-slate-200 rounded-xl transition text-sm">Hủy</button>
                             <button onClick={handleJsonImport} disabled={!jsonImportText.trim() || isParsingAI} className="px-5 py-2 bg-slate-200 hover:bg-slate-300 disabled:opacity-50 text-slate-700 font-semibold rounded-xl transition text-sm flex items-center gap-2">
                                 JSON chuẩn
                             </button>
