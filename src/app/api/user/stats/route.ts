@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionFromRequest } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
+import { calculateIELTSOverallBand } from "@/lib/utils/ieltsBand";
 
-export const dynamic = 'force-dynamic'
+export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
     const session = await getSessionFromRequest(req);
@@ -26,38 +27,50 @@ export async function GET(req: NextRequest) {
             }
         });
 
-        // Calculate estimated band if not already computed
-        if (user && !user.estimatedBand) {
-            const skills = ["LISTENING", "READING", "WRITING", "SPEAKING"];
-            const submissions = await prisma.submission.findMany({
-                where: { userId: session.id, bandScore: { not: null } },
-                select: { skill: true, bandScore: true },
-                orderBy: { createdAt: "asc" },
-            });
+        // Always compute latest scores per skill
+        const submissions = await prisma.submission.findMany({
+            where: { userId: session.id, bandScore: { not: null } },
+            select: { skill: true, bandScore: true, createdAt: true },
+            orderBy: { createdAt: "desc" },
+        });
 
-            const firstBySkill: Record<string, number> = {};
-            for (const sub of submissions) {
-                if (!firstBySkill[sub.skill] && sub.bandScore !== null) {
-                    firstBySkill[sub.skill] = sub.bandScore!;
-                }
+        const latestBySkill: Record<string, number> = {};
+        for (const sub of submissions) {
+            if (latestBySkill[sub.skill] === undefined && sub.bandScore !== null) {
+                latestBySkill[sub.skill] = sub.bandScore;
             }
-
-            const coveredSkills = Object.keys(firstBySkill);
-            if (coveredSkills.length === 4) {
-                const avg = skills.reduce((sum, s) => sum + (firstBySkill[s] || 0), 0) / 4;
-                const band = Math.round(avg * 2) / 2;
-                await prisma.user.update({
-                    where: { id: session.id },
-                    data: { estimatedBand: band }
-                });
-                return NextResponse.json({ ...user, estimatedBand: band, completedSkills: coveredSkills });
-            }
-
-            return NextResponse.json({ ...user, completedSkills: coveredSkills });
         }
 
-        return NextResponse.json(user || {});
+        const coveredSkills = Object.keys(latestBySkill);
+        let updatedEstimatedBand = user?.estimatedBand || null;
+
+        if (coveredSkills.length === 4) {
+            const band = calculateIELTSOverallBand(
+                latestBySkill["READING"] || 0,
+                latestBySkill["LISTENING"] || 0,
+                latestBySkill["WRITING"] || 0,
+                latestBySkill["SPEAKING"] || 0
+            );
+            updatedEstimatedBand = band;
+            await prisma.user.update({
+                where: { id: session.id },
+                data: { estimatedBand: band }
+            });
+        }
+
+        return NextResponse.json({
+            ...user,
+            estimatedBand: updatedEstimatedBand,
+            completedSkills: coveredSkills,
+            skillScores: {
+                reading: latestBySkill["READING"] ?? null,
+                listening: latestBySkill["LISTENING"] ?? null,
+                writing: latestBySkill["WRITING"] ?? null,
+                speaking: latestBySkill["SPEAKING"] ?? null,
+            }
+        });
     } catch (e) {
+        console.error(e);
         return NextResponse.json({ error: "Failed" }, { status: 500 });
     }
 }
@@ -68,23 +81,21 @@ export async function PUT(req: NextRequest) {
 
     try {
         const body = await req.json();
-        const data: any = {};
+        const { targetBand, currentBand, weakestSkill, onboardingDone, bandReminderShown } = body;
 
-        if (body.targetBand != null) {
-            const b = parseFloat(body.targetBand);
-            if (b >= 0.5 && b <= 9.5) data.targetBand = b;
-        }
-        if (body.currentBand !== undefined) data.currentBand = body.currentBand !== null ? parseFloat(body.currentBand) : null;
-        if (body.weakestSkill != null) data.weakestSkill = body.weakestSkill;
-        if (body.onboardingDone != null) data.onboardingDone = Boolean(body.onboardingDone);
-        if (body.bandReminderShown != null) data.bandReminderShown = Boolean(body.bandReminderShown);
-        if (body.school != null) data.school = body.school;
-        if (body.occupation != null) data.occupation = body.occupation;
-        if (body.referralSource != null) data.referralSource = body.referralSource;
+        const updated = await prisma.user.update({
+            where: { id: session.id },
+            data: {
+                ...(targetBand !== undefined ? { targetBand: parseFloat(targetBand) } : {}),
+                ...(currentBand !== undefined ? { currentBand: parseFloat(currentBand) } : {}),
+                ...(weakestSkill !== undefined ? { weakestSkill } : {}),
+                ...(onboardingDone !== undefined ? { onboardingDone } : {}),
+                ...(bandReminderShown !== undefined ? { bandReminderShown } : {}),
+            }
+        });
 
-        const user = await prisma.user.update({ where: { id: session.id }, data });
-        return NextResponse.json({ success: true, user });
+        return NextResponse.json(updated);
     } catch (e) {
-        return NextResponse.json({ error: "Failed" }, { status: 500 });
+        return NextResponse.json({ error: "Failed to update user stats" }, { status: 500 });
     }
 }

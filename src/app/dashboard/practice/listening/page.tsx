@@ -2,10 +2,11 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Headphones, ArrowLeft, CheckCircle2, XCircle, Clock, Play, Pause, Volume2, Highlighter, PenTool, Eraser } from "lucide-react";
-import Link from "next/link";
+import { Headphones, ArrowLeft, CheckCircle2, XCircle, Clock, Play, Pause, ChevronRight, ChevronLeft } from "lucide-react";
 import PracticeSetListView from "@/components/practice/PracticeSetListView";
 import ComboCompletionModal from "@/components/practice/ComboCompletionModal";
+import ResultsSummaryModal from "@/components/practice/ResultsSummaryModal";
+import OverallScorecardModal from "@/components/practice/OverallScorecardModal";
 
 interface Question {
     id: number;
@@ -15,6 +16,12 @@ interface Question {
     answer?: string;
     answers?: string[];
     hint?: string;
+}
+
+interface Part {
+    title?: string;
+    mapImage?: string;
+    questions: Question[];
 }
 
 interface PracticeSet {
@@ -33,11 +40,12 @@ export default function ListeningPractice() {
     const [selectedSet, setSelectedSet] = useState<PracticeSet | null>(null);
     const [parsedContent, setParsedContent] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+
+    const [activePartIdx, setActivePartIdx] = useState(0);
     const [answers, setAnswers] = useState<Record<string, any>>({});
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [evaluation, setEvaluation] = useState<any>(null);
-    const [showComboModal, setShowComboModal] = useState(false);
 
     // Audio Player states
     const [audioProgress, setAudioProgress] = useState(0);
@@ -50,20 +58,18 @@ export default function ListeningPractice() {
     const [timeLeft, setTimeLeft] = useState(40 * 60);
     const [isTimerRunning, setIsTimerRunning] = useState(false);
 
-    // Canvas drawing states
-    const [drawMode, setDrawMode] = useState(false);
-    const canvasRef = useRef<HTMLCanvasElement>(null);
-    const questionsRef = useRef<HTMLDivElement>(null);
-    const [isDrawing, setIsDrawing] = useState(false);
-    const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
+    // Modals
+    const [showResultsModal, setShowResultsModal] = useState(false);
+    const [showComboModal, setShowComboModal] = useState(false);
+    const [showOverallModal, setShowOverallModal] = useState(false);
+    const [overallBand, setOverallBand] = useState(0);
+    const [skillScores, setSkillScores] = useState<any>({});
 
     useEffect(() => {
         fetch("/api/practice?skill=listening")
             .then(r => r.json())
             .then(data => {
-                if (Array.isArray(data)) {
-                    setSets(data);
-                }
+                if (Array.isArray(data)) setSets(data);
                 setLoading(false);
             })
             .catch(() => setLoading(false));
@@ -72,7 +78,8 @@ export default function ListeningPractice() {
     useEffect(() => {
         if (!selectedSet) return;
         try { setParsedContent(JSON.parse(selectedSet.content || "{}")); } catch { setParsedContent({}); }
-        setAnswers({}); setIsSubmitted(false); setEvaluation(null); setAudioProgress(0); setIsPlaying(false); setShowComboModal(false);
+        setAnswers({}); setIsSubmitted(false); setEvaluation(null); setAudioProgress(0); setIsPlaying(false);
+        setActivePartIdx(0); setShowResultsModal(false); setShowComboModal(false); setShowOverallModal(false);
         if (audioRef.current) audioRef.current.load();
     }, [selectedSet]);
 
@@ -81,51 +88,6 @@ export default function ListeningPractice() {
         const t = setInterval(() => setTimeLeft(p => p - 1), 1000);
         return () => clearInterval(t);
     }, [isTimerRunning, timeLeft]);
-
-    // Canvas setup
-    useEffect(() => {
-        if (!drawMode || !canvasRef.current || !questionsRef.current) return;
-        const canvas = canvasRef.current;
-        canvas.width = questionsRef.current.scrollWidth;
-        canvas.height = questionsRef.current.scrollHeight;
-        const ctx = canvas.getContext("2d");
-        if (ctx) {
-            ctx.lineCap = "round";
-            ctx.strokeStyle = "rgba(239, 68, 68, 0.6)";
-            ctx.lineWidth = 3;
-            ctxRef.current = ctx;
-        }
-    }, [drawMode, selectedSet]);
-
-    const startDraw = (e: React.MouseEvent | React.TouchEvent) => {
-        if (!drawMode || !ctxRef.current || !canvasRef.current) return;
-        setIsDrawing(true);
-        const rect = canvasRef.current.getBoundingClientRect();
-        const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
-        const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY;
-        ctxRef.current.beginPath();
-        ctxRef.current.moveTo(clientX - rect.left, clientY - rect.top);
-    };
-
-    const draw = (e: React.MouseEvent | React.TouchEvent) => {
-        if (!isDrawing || !ctxRef.current || !canvasRef.current) return;
-        const rect = canvasRef.current.getBoundingClientRect();
-        const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
-        const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY;
-        ctxRef.current.lineTo(clientX - rect.left, clientY - rect.top);
-        ctxRef.current.stroke();
-    };
-
-    const stopDraw = () => {
-        if (ctxRef.current) ctxRef.current.closePath();
-        setIsDrawing(false);
-    };
-
-    const clearCanvas = () => {
-        if (canvasRef.current && ctxRef.current) {
-            ctxRef.current.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-        }
-    };
 
     const togglePlay = () => {
         if (!audioRef.current) return;
@@ -150,32 +112,54 @@ export default function ListeningPractice() {
         setAudioProgress(parseFloat(e.target.value));
     };
 
-    const formatTime = (s: number) => {
-        const mins = Math.floor(s / 60);
-        const secs = Math.floor(s % 60);
-        return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+    const formatTime = (s: number) => `${Math.floor(s / 60).toString().padStart(2, "0")}:${Math.floor(s % 60).toString().padStart(2, "0")}`;
+
+    const parts: Part[] = parsedContent?.parts || [];
+    const currentPart = parts[activePartIdx] || { questions: [] };
+
+    // Unique key per question: p{partIdx}_q{qIdx}
+    const getQKey = (pIdx: number, qIdx: number) => `p${pIdx}_q${qIdx}`;
+    const getAnswer = (qKey: string) => answers[qKey] || "";
+    const getMultiAnswer = (qKey: string): string[] => answers[qKey] || [];
+
+    const handleAnswer = (qKey: string, val: string) => {
+        if (!isSubmitted && !isSubmitting) {
+            setAnswers(prev => ({ ...prev, [qKey]: val }));
+            if (!isTimerRunning) setIsTimerRunning(true);
+        }
     };
 
-    const getAnswer = (qId: number) => answers[`${selectedSet?.id}-${qId}`] || "";
-    const getMultiAnswer = (qId: number): string[] => answers[`${selectedSet?.id}-${qId}`] || [];
-    const handleAnswer = (qId: number, val: string) => {
+    const handleMultiAnswer = (qKey: string, val: string) => {
         if (isSubmitted || isSubmitting) return;
-        setAnswers(prev => ({ ...prev, [`${selectedSet?.id}-${qId}`]: val }));
-    };
-    const handleMultiAnswer = (qId: number, val: string) => {
-        if (isSubmitted || isSubmitting) return;
+        if (!isTimerRunning) setIsTimerRunning(true);
         setAnswers(p => {
-            const current = (p[`${selectedSet?.id}-${qId}`] || []) as string[];
-            if (current.includes(val)) return { ...p, [`${selectedSet?.id}-${qId}`]: current.filter(x => x !== val) };
-            return { ...p, [`${selectedSet?.id}-${qId}`]: [...current, val] };
+            const current = (p[qKey] || []) as string[];
+            if (current.includes(val)) return { ...p, [qKey]: current.filter(x => x !== val) };
+            return { ...p, [qKey]: [...current, val] };
         });
     };
 
-    const getWrongAnswer = (qId: number) => evaluation?.wrongAnswers?.find((w: any) => w.questionId === qId);
-    const isCorrect = (qId: number) => !getWrongAnswer(qId) && getAnswer(qId) !== "";
+    // Global questions payload mapping
+    const allQuestionsWithKeys = parts.flatMap((p, pIdx) =>
+        (p.questions || []).map((q, qIdx) => ({
+            ...q,
+            globalId: q.id || (pIdx * 100 + qIdx + 1),
+            qKey: getQKey(pIdx, qIdx)
+        }))
+    );
 
-    const parts: any[] = parsedContent?.parts || [];
-    const allQuestions: Question[] = parts.flatMap((p: any) => p.questions || []);
+    const getWrongByQKey = (qKey: string) => {
+        if (!evaluation?.wrongAnswers) return null;
+        const targetQ = allQuestionsWithKeys.find(x => x.qKey === qKey);
+        if (!targetQ) return null;
+        return evaluation.wrongAnswers.find((w: any) => w.questionId === targetQ.globalId || w.questionId === targetQ.id);
+    };
+
+    const isCorrect = (qKey: string) => {
+        const wrong = getWrongByQKey(qKey);
+        const ans = getAnswer(qKey);
+        return !wrong && (Array.isArray(ans) ? ans.length > 0 : ans !== "");
+    };
 
     const isComboTest = selectedSet && (selectedSet.skill === "COMBO" || selectedSet.title?.toLowerCase().includes("combo") || selectedSet.description?.toLowerCase().includes("combo"));
 
@@ -185,8 +169,10 @@ export default function ListeningPractice() {
         setIsPlaying(false);
         if (audioRef.current) audioRef.current.pause();
 
-        const formattedAnswers: Record<number, any> = {};
-        allQuestions.forEach(q => { formattedAnswers[q.id] = q.type === "multi-mcq" ? getMultiAnswer(q.id) : getAnswer(q.id); });
+        const formattedUserAnswers: Record<number, any> = {};
+        allQuestionsWithKeys.forEach(q => {
+            formattedUserAnswers[q.globalId] = q.type === "multi-mcq" ? getMultiAnswer(q.qKey) : getAnswer(q.qKey);
+        });
 
         try {
             const res = await fetch("/api/ai/listening", {
@@ -194,29 +180,47 @@ export default function ListeningPractice() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     practiceSetId: selectedSet?.id,
-                    questions: allQuestions.map(q => ({ id: q.id, text: q.text, answerKey: q.type === "multi-mcq" ? q.answers : q.answer, type: q.type })),
-                    userAnswers: formattedAnswers
+                    questions: allQuestionsWithKeys.map(q => ({
+                        id: q.globalId,
+                        text: q.text,
+                        answerKey: q.type === "multi-mcq" ? q.answers : q.answer,
+                        type: q.type
+                    })),
+                    userAnswers: formattedUserAnswers
                 })
             });
             const data = await res.json();
             if (data.success) {
                 setEvaluation(data.evaluation);
                 setIsSubmitted(true);
-                if (isComboTest) {
-                    setShowComboModal(true);
-                }
-            } else { alert("Lỗi: " + data.error); setIsTimerRunning(true); }
-        } catch { alert("Lỗi hệ thống."); setIsTimerRunning(true); }
-        finally { setIsSubmitting(false); }
+                setShowResultsModal(true);
+
+                // Check latest 4 skill stats
+                fetch("/api/user/stats")
+                    .then(r => r.json())
+                    .then(stats => {
+                        if (stats.completedSkills && stats.completedSkills.length === 4) {
+                            setOverallBand(stats.estimatedBand || 0);
+                            setSkillScores(stats.skillScores || {});
+                        }
+                    })
+                    .catch(() => {});
+            } else {
+                alert("Lỗi: " + data.error);
+                setIsTimerRunning(true);
+            }
+        } catch {
+            alert("Lỗi kết nối.");
+            setIsTimerRunning(true);
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     if (loading) {
         return (
             <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-4 border-orange-500 border-t-transparent mx-auto mb-4" />
-                    <p className="text-slate-600">Đang tải bài luyện tập...</p>
-                </div>
+                <div className="animate-spin rounded-full h-12 w-12 border-4 border-orange-500 border-t-transparent" />
             </div>
         );
     }
@@ -232,10 +236,20 @@ export default function ListeningPractice() {
     }
 
     const audioUrl = parsedContent?.audioUrl || "";
-    const mapImages = parsedContent?.parts?.map((p: any) => p.mapImage).filter(Boolean) || [];
 
     return (
-        <div className="min-h-[calc(100vh-4rem)] bg-gradient-to-b from-slate-50 to-orange-50/20">
+        <div className="min-h-[calc(100vh-4rem)] bg-gradient-to-b from-slate-50 to-orange-50/20 py-6">
+            <ResultsSummaryModal
+                isOpen={showResultsModal}
+                skill="listening"
+                evaluation={{ ...evaluation, totalQuestions: allQuestionsWithKeys.length }}
+                onReviewDetails={() => setShowResultsModal(false)}
+                onRetry={() => {
+                    setIsSubmitted(false); setEvaluation(null); setAnswers({}); setTimeLeft(40 * 60); setAudioProgress(0); setShowResultsModal(false);
+                }}
+                onBackToList={() => setSelectedSet(null)}
+            />
+
             <ComboCompletionModal
                 isOpen={showComboModal}
                 completedCount={2}
@@ -250,35 +264,45 @@ export default function ListeningPractice() {
                 }}
             />
 
-            <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 space-y-6">
-                {/* Header */}
-                <div className="flex items-center justify-between">
+            <OverallScorecardModal
+                isOpen={showOverallModal}
+                overallBand={overallBand}
+                skillScores={skillScores}
+                onClose={() => setShowOverallModal(false)}
+                onGoToDashboard={() => window.location.href = "/dashboard"}
+            />
+
+            <div className="max-w-5xl mx-auto px-4 sm:px-6 space-y-6">
+                {/* Header Navbar */}
+                <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
                     <div className="flex items-center gap-3">
-                        <button onClick={() => setSelectedSet(null)} className="p-2 hover:bg-slate-200 rounded-xl transition flex items-center gap-1.5 text-slate-700 font-medium text-sm bg-white border border-slate-200 shadow-sm">
+                        <button onClick={() => setSelectedSet(null)} className="p-2 hover:bg-slate-100 rounded-xl transition flex items-center gap-1.5 text-slate-700 font-medium text-sm bg-slate-50 border border-slate-200">
                             <ArrowLeft className="h-4 w-4" /> Danh sách bài
                         </button>
-                        <div className="h-10 w-10 rounded-xl bg-orange-100 flex items-center justify-center"><Headphones className="h-5 w-5 text-orange-600" /></div>
+                        <div className="h-10 w-10 rounded-xl bg-orange-100 flex items-center justify-center shrink-0">
+                            <Headphones className="h-5 w-5 text-orange-600" />
+                        </div>
                         <div>
-                            <h1 className="text-xl font-bold text-slate-900">{selectedSet.title}</h1>
-                            <p className="text-xs text-slate-500">Luyện nghe IELTS</p>
+                            <h1 className="text-lg font-bold text-slate-900 line-clamp-1">{selectedSet.title}</h1>
+                            <p className="text-xs text-slate-500">Luyện nghe IELTS — Tổng số câu: <b>{allQuestionsWithKeys.length} câu</b></p>
                         </div>
                     </div>
                     <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-sm font-mono shadow-sm">
+                        <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-sm font-mono font-bold">
                             <Clock className="h-4 w-4 text-slate-500" />
-                            <span className={`font-bold ${timeLeft < 120 ? "text-red-600" : ""}`}>{formatTime(timeLeft)}</span>
+                            <span className={timeLeft < 120 ? "text-red-600 animate-pulse" : "text-slate-700"}>{formatTime(timeLeft)}</span>
                         </div>
-                        {isSubmitted && evaluation && (
-                            <div className="px-3 py-1.5 rounded-lg bg-emerald-100 text-emerald-700 text-sm font-bold">
-                                {evaluation.totalCorrect}/{allQuestions.length} đúng — Band {evaluation.bandScore}
-                            </div>
+                        {isSubmitted && (
+                            <Button onClick={() => setShowResultsModal(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2 rounded-xl shadow-md">
+                                📊 Xem Bảng Điểm
+                            </Button>
                         )}
                     </div>
                 </div>
 
                 {/* Audio Player Bar */}
                 {audioUrl && (
-                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+                    <div className="bg-white p-4.5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
                         <audio ref={audioRef} src={audioUrl} onTimeUpdate={handleTimeUpdate} onEnded={() => setIsPlaying(false)} />
                         <div className="flex items-center gap-4">
                             <button onClick={togglePlay} className="h-12 w-12 rounded-full bg-orange-600 hover:bg-orange-700 text-white flex items-center justify-center shadow-md transition shrink-0">
@@ -286,7 +310,7 @@ export default function ListeningPractice() {
                             </button>
                             <div className="flex-1 space-y-1">
                                 <input type="range" min="0" max="100" value={audioProgress || 0} onChange={handleSeek} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-orange-600" />
-                                <div className="flex justify-between text-xs font-mono text-slate-500">
+                                <div className="flex justify-between text-xs font-mono text-slate-500 font-bold">
                                     <span>{formatTime(currentTime)}</span>
                                     <span>{formatTime(audioDuration)}</span>
                                 </div>
@@ -295,115 +319,164 @@ export default function ListeningPractice() {
                     </div>
                 )}
 
-                {/* Question Section */}
-                <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                    <div className="bg-slate-50 border-b border-slate-200 p-2 flex justify-between items-center px-6">
-                        <h3 className="font-bold text-slate-800">Questions ({allQuestions.length})</h3>
-                        <div className="flex gap-2">
-                            <button onClick={() => setDrawMode(!drawMode)} className={`p-2 rounded-lg transition ${drawMode ? 'bg-orange-100 text-orange-700' : 'text-slate-600 hover:bg-slate-200'}`} title="Bật/Tắt bút vẽ">
-                                <PenTool className="h-4 w-4" />
+                {/* Part Navigation Tabs */}
+                {parts.length > 1 && (
+                    <div className="flex gap-2 border-b border-slate-200 bg-white p-2 rounded-2xl border shadow-sm overflow-x-auto">
+                        {parts.map((p, pIdx) => (
+                            <button
+                                key={pIdx}
+                                onClick={() => setActivePartIdx(pIdx)}
+                                className={`px-5 py-2.5 rounded-xl text-sm font-bold transition flex items-center gap-2 whitespace-nowrap ${
+                                    activePartIdx === pIdx
+                                        ? "bg-orange-600 text-white shadow-md shadow-orange-500/20"
+                                        : "text-slate-600 hover:bg-slate-100"
+                                }`}>
+                                Part {pIdx + 1}
+                                <span className={`text-xs px-2 py-0.5 rounded-full ${activePartIdx === pIdx ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"}`}>
+                                    {p.questions?.length || 0} câu
+                                </span>
                             </button>
-                            <button onClick={clearCanvas} className="p-2 text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title="Xóa nét vẽ">
-                                <Eraser className="h-4 w-4" />
-                            </button>
-                        </div>
+                        ))}
+                    </div>
+                )}
+
+                {/* Main Questions Section for Active Part */}
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-6">
+                    <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                        <h3 className="font-bold text-slate-800 text-sm">
+                            {currentPart.title || `Part ${activePartIdx + 1}`} ({currentPart.questions?.length || 0} câu)
+                        </h3>
+                        <span className="text-xs text-slate-400">Part {activePartIdx + 1}/{parts.length}</span>
                     </div>
 
-                    <div ref={questionsRef} className="relative p-6">
-                        {drawMode && (
-                            <canvas
-                                ref={canvasRef}
-                                onMouseDown={startDraw} onMouseMove={draw} onMouseUp={stopDraw} onMouseLeave={stopDraw}
-                                onTouchStart={startDraw} onTouchMove={draw} onTouchEnd={stopDraw}
-                                className="absolute top-0 left-0 w-full h-full z-10 cursor-crosshair touch-none"
-                            />
-                        )}
-                        <div className={`space-y-6 ${drawMode ? 'select-none pointer-events-none' : ''}`}>
-                            {mapImages.length > 0 && (
-                                <div className="mb-6 space-y-4">
-                                    {mapImages.map((img: string, i: number) => (
-                                        <div key={i} className="rounded-xl border border-slate-200 overflow-hidden bg-slate-50 p-2">
-                                            <img src={img} alt="Map Labeling" className="w-full max-w-2xl mx-auto rounded-lg object-contain" />
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
+                    {currentPart.mapImage && (
+                        <div className="rounded-2xl border border-slate-200 overflow-hidden bg-slate-50 p-3">
+                            <img src={currentPart.mapImage} alt="Listening Map/Diagram" className="w-full max-w-xl mx-auto rounded-xl object-contain" />
+                        </div>
+                    )}
 
-                            <div className="space-y-5">
-                                {allQuestions.map((q, idx) => (
-                                    <div key={q.id} className={`p-4 rounded-lg border ${isSubmitted ? (isCorrect(q.id) ? "bg-emerald-50 border-emerald-200" : "bg-red-50 border-red-200") : "bg-slate-50 border-slate-200"}`}>
+                    {(!currentPart.questions || currentPart.questions.length === 0) ? (
+                        <p className="text-xs text-slate-400 italic py-4">Không có câu hỏi cho Part này.</p>
+                    ) : (
+                        <div className="space-y-5">
+                            {currentPart.questions.map((q, qIdx) => {
+                                const qKey = getQKey(activePartIdx, qIdx);
+                                const wrong = getWrongByQKey(qKey);
+                                const correctState = isCorrect(qKey);
+
+                                return (
+                                    <div
+                                        key={qKey}
+                                        className={`p-4 rounded-xl border transition-all ${
+                                            isSubmitted
+                                                ? correctState
+                                                    ? "bg-emerald-50/80 border-emerald-300"
+                                                    : "bg-red-50/80 border-red-300"
+                                                : "bg-slate-50 border-slate-200"
+                                        }`}>
                                         <div className="flex items-start gap-3">
-                                            <span className="flex-shrink-0 h-6 w-6 rounded-full bg-orange-600 text-white text-xs font-bold flex items-center justify-center">{idx + 1}</span>
-                                            <div className="flex-1">
-                                                <p className="text-sm font-medium text-slate-800 mb-2">{q.text}</p>
+                                            <span className="flex-shrink-0 h-6 w-6 rounded-full bg-orange-600 text-white text-xs font-bold flex items-center justify-center">
+                                                {qIdx + 1}
+                                            </span>
+                                            <div className="flex-1 space-y-3">
+                                                <p className="text-sm font-semibold text-slate-800">{q.text}</p>
+
+                                                {/* Fill */}
                                                 {q.type === "fill" && (
-                                                    <div className="flex items-center gap-2">
-                                                        <input type="text" value={getAnswer(q.id)} onChange={e => handleAnswer(q.id, e.target.value)} disabled={isSubmitted}
-                                                            className="flex-1 max-w-xs border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500 outline-none" placeholder="Nhập câu trả lời..." />
-                                                        {q.hint && <span className="text-xs text-slate-400 bg-slate-100 px-2 py-1 rounded">{q.hint}</span>}
-                                                    </div>
+                                                    <input
+                                                        type="text"
+                                                        value={getAnswer(qKey)}
+                                                        onChange={e => handleAnswer(qKey, e.target.value)}
+                                                        disabled={isSubmitted}
+                                                        className="w-full max-w-md border border-slate-300 rounded-xl px-3.5 py-2 text-sm focus:ring-2 focus:ring-orange-500 outline-none bg-white font-medium"
+                                                        placeholder="Nhập câu trả lời..."
+                                                    />
                                                 )}
+
+                                                {/* Single MCQ */}
                                                 {q.type === "mcq" && q.options && (
-                                                    <div className="space-y-2">
+                                                    <div className="space-y-1.5">
                                                         {q.options.map((opt, i) => (
-                                                            <label key={i} className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer hover:bg-white/50 ${getAnswer(q.id) === opt ? "bg-orange-50 ring-1 ring-orange-200" : ""}`}>
-                                                                <input type="radio" name={`q-${selectedSet?.id}-${q.id}`} checked={getAnswer(q.id) === opt} onChange={() => handleAnswer(q.id, opt)} disabled={isSubmitted} className="h-4 w-4 text-orange-600" />
-                                                                <span className="text-sm">{String.fromCharCode(65 + i)}. {cleanOptText(opt)}</span>
+                                                            <label key={i} className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer hover:bg-white transition border ${getAnswer(qKey) === opt ? "bg-orange-50 border-orange-300 font-semibold" : "border-transparent"}`}>
+                                                                <input
+                                                                    type="radio"
+                                                                    name={`radio-${selectedSet.id}-${qKey}`}
+                                                                    checked={getAnswer(qKey) === opt}
+                                                                    onChange={() => handleAnswer(qKey, opt)}
+                                                                    disabled={isSubmitted}
+                                                                    className="h-4 w-4 text-orange-600"
+                                                                />
+                                                                <span className="text-sm text-slate-700">{String.fromCharCode(65 + i)}. {cleanOptText(opt)}</span>
                                                             </label>
                                                         ))}
                                                     </div>
                                                 )}
+
+                                                {/* TF */}
                                                 {q.type === "tf" && (
-                                                    <div className="flex gap-2">
+                                                    <div className="flex gap-2 flex-wrap">
                                                         {["TRUE", "FALSE", "NOT GIVEN"].map(opt => (
-                                                            <button key={opt} onClick={() => !isSubmitted && handleAnswer(q.id, opt)}
-                                                                className={`px-3 py-1.5 rounded-lg text-xs font-bold border ${getAnswer(q.id) === opt ? "bg-orange-600 text-white border-orange-600" : "bg-white text-slate-600 border-slate-300"}`}>
+                                                            <button
+                                                                key={opt}
+                                                                onClick={() => handleAnswer(qKey, opt)}
+                                                                disabled={isSubmitted}
+                                                                className={`px-4 py-2 rounded-xl text-xs font-bold border transition ${
+                                                                    getAnswer(qKey) === opt
+                                                                        ? "bg-orange-600 text-white border-orange-600 shadow-sm"
+                                                                        : "bg-white text-slate-600 border-slate-300 hover:bg-slate-100"
+                                                                }`}>
                                                                 {opt}
                                                             </button>
                                                         ))}
                                                     </div>
                                                 )}
+
+                                                {/* Multi MCQ */}
                                                 {q.type === "multi-mcq" && q.options && (
-                                                    <div className="space-y-2 mt-2">
+                                                    <div className="space-y-1.5">
                                                         {q.options.map((opt, i) => (
-                                                            <label key={i} className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer hover:bg-white/50 ${getMultiAnswer(q.id).includes(opt) ? "bg-orange-50 ring-1 ring-orange-200" : ""}`}>
-                                                                <input type="checkbox" checked={getMultiAnswer(q.id).includes(opt)} onChange={() => handleMultiAnswer(q.id, opt)} disabled={isSubmitted} className="h-4 w-4 text-orange-600 rounded" />
-                                                                <span className="text-sm">{String.fromCharCode(65 + i)}. {cleanOptText(opt)}</span>
+                                                            <label key={i} className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer hover:bg-white transition border ${getMultiAnswer(qKey).includes(opt) ? "bg-orange-50 border-orange-300 font-semibold" : "border-transparent"}`}>
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={getMultiAnswer(qKey).includes(opt)}
+                                                                    onChange={() => handleMultiAnswer(qKey, opt)}
+                                                                    disabled={isSubmitted}
+                                                                    className="h-4 w-4 text-orange-600 rounded"
+                                                                />
+                                                                <span className="text-sm text-slate-700">{String.fromCharCode(65 + i)}. {cleanOptText(opt)}</span>
                                                             </label>
                                                         ))}
                                                     </div>
                                                 )}
+
+                                                {/* Matching */}
                                                 {q.type === "matching" && (
-                                                    <div className="space-y-2 mt-2">
+                                                    <select
+                                                        value={getAnswer(qKey)}
+                                                        onChange={e => handleAnswer(qKey, e.target.value)}
+                                                        disabled={isSubmitted}
+                                                        className="w-full border border-slate-300 rounded-xl px-3.5 py-2 text-sm focus:ring-2 focus:ring-orange-500 outline-none bg-white font-medium">
+                                                        <option value="">-- Chọn đáp án --</option>
                                                         {q.options?.map((opt, i) => (
-                                                            <div key={i} className="flex items-center gap-3 p-2 bg-slate-50 border border-slate-100 rounded-lg">
-                                                                <span className="text-sm font-bold text-slate-500 w-6">{String.fromCharCode(65 + i)}</span>
-                                                                <span className="text-sm flex-1">{cleanOptText(opt)}</span>
-                                                            </div>
+                                                            <option key={i} value={opt}>{cleanOptText(opt)}</option>
                                                         ))}
-                                                        <div className="flex items-center gap-2 mt-3">
-                                                            <input type="text" value={getAnswer(q.id)} onChange={e => handleAnswer(q.id, e.target.value)} disabled={isSubmitted}
-                                                                className="w-20 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500 outline-none text-center font-bold" placeholder="VD: A" />
-                                                            <span className="text-xs text-slate-400">Nhập chữ cái tương ứng</span>
-                                                        </div>
-                                                    </div>
+                                                    </select>
                                                 )}
+
+                                                {/* Answer Review Section */}
                                                 {isSubmitted && (
-                                                    <div className="mt-3 p-3 rounded-lg bg-slate-50 border border-slate-200">
-                                                        {isCorrect(q.id) ? (
-                                                            <div className="flex items-center gap-2 text-emerald-600 font-bold text-sm">
-                                                                <CheckCircle2 className="h-4 w-4" /> Chính xác!
+                                                    <div className="mt-3 pt-3 border-t border-slate-200/60">
+                                                        {correctState ? (
+                                                            <div className="text-xs font-bold text-emerald-600 flex items-center gap-1">
+                                                                <CheckCircle2 className="h-4 w-4" /> Chính xác
                                                             </div>
                                                         ) : (
-                                                            <div className="space-y-2">
-                                                                <div className="flex items-center gap-2 text-red-600 font-bold text-sm">
-                                                                    <XCircle className="h-4 w-4" /> Sai rồi. Đáp án đúng là: {q.type === "multi-mcq" ? q.answers?.join(", ") : q.answer}
+                                                            <div className="space-y-1 text-xs">
+                                                                <div className="font-bold text-red-600 flex items-center gap-1">
+                                                                    <XCircle className="h-4 w-4" /> Sai — Đáp án đúng: <strong>{q.type === "multi-mcq" ? q.answers?.join(", ") : q.answer}</strong>
                                                                 </div>
-                                                                {getWrongAnswer(q.id)?.explanation && (
-                                                                    <p className="text-sm text-slate-600 border-l-2 border-red-300 pl-3">
-                                                                        <span className="font-semibold text-slate-700">Giải thích: </span>
-                                                                        {getWrongAnswer(q.id)?.explanation}
-                                                                    </p>
+                                                                {wrong?.reason && (
+                                                                    <div className="text-slate-600 bg-white p-2 rounded-lg border border-red-100 mt-1" dangerouslySetInnerHTML={{ __html: wrong.reason }} />
                                                                 )}
                                                             </div>
                                                         )}
@@ -412,26 +485,53 @@ export default function ListeningPractice() {
                                             </div>
                                         </div>
                                     </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-
-                    {isSubmitted && evaluation && (
-                        <div className="mt-6 bg-orange-50 border border-orange-200 rounded-xl p-5 m-6">
-                            <h4 className="font-bold text-orange-900 mb-4">📝 AI Examiner Feedback</h4>
-                            <div className="prose prose-sm max-w-none text-orange-900 leading-relaxed" dangerouslySetInnerHTML={{ __html: evaluation.feedback }} />
+                                );
+                            })}
                         </div>
                     )}
-                    <div className="p-6 pt-0">
+
+                    {/* Part Pagination Controls & Submit Button */}
+                    <div className="pt-4 border-t border-slate-100 flex flex-col gap-3">
+                        <div className="flex items-center justify-between">
+                            <Button
+                                disabled={activePartIdx === 0}
+                                onClick={() => setActivePartIdx(p => p - 1)}
+                                variant="outline"
+                                className="text-xs font-semibold px-3.5 py-2 rounded-xl">
+                                <ChevronLeft className="h-4 w-4" /> Part trước
+                            </Button>
+
+                            <span className="text-xs text-slate-500 font-bold">Part {activePartIdx + 1}/{parts.length}</span>
+
+                            <Button
+                                disabled={activePartIdx === parts.length - 1}
+                                onClick={() => setActivePartIdx(p => p + 1)}
+                                variant="outline"
+                                className="text-xs font-semibold px-3.5 py-2 rounded-xl">
+                                Part tiếp <ChevronRight className="h-4 w-4" />
+                            </Button>
+                        </div>
+
                         {!isSubmitted ? (
-                            <Button onClick={handleSubmit} disabled={isSubmitting} className="w-full bg-emerald-600 hover:bg-emerald-700 py-3 disabled:opacity-70 font-bold">
-                                {isSubmitting ? "Đang chấm điểm bằng AI..." : "Nộp bài"}
+                            <Button
+                                onClick={handleSubmit}
+                                disabled={isSubmitting}
+                                className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-orange-500/20 transition-all">
+                                {isSubmitting ? "Đang chấm điểm bằng AI..." : "Nộp Bài Thi Listening"}
                             </Button>
                         ) : (
-                            <div className="flex gap-3">
-                                <Button variant="outline" className="flex-1" onClick={() => { setIsSubmitted(false); setEvaluation(null); setAnswers({}); setTimeLeft(30 * 60); setAudioProgress(0); }}>Làm lại</Button>
-                                <Button className="flex-1 bg-blue-600" onClick={() => setSelectedSet(null)}>Danh sách bài</Button>
+                            <div className="flex gap-2">
+                                <Button
+                                    variant="outline"
+                                    onClick={() => { setIsSubmitted(false); setEvaluation(null); setAnswers({}); setTimeLeft(40 * 60); setAudioProgress(0); }}
+                                    className="flex-1 text-xs font-bold rounded-xl py-2.5">
+                                    Làm lại
+                                </Button>
+                                <Button
+                                    onClick={() => setSelectedSet(null)}
+                                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl py-2.5">
+                                    Danh sách bài
+                                </Button>
                             </div>
                         )}
                     </div>
