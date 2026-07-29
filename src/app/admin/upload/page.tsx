@@ -43,6 +43,9 @@ export default function AdminPracticeUpload() {
     const [showJsonModal, setShowJsonModal] = useState(false);
     const [jsonImportText, setJsonImportText] = useState("");
     const [isParsingAI, setIsParsingAI] = useState(false);
+    const [parseProgress, setParseProgress] = useState(0);
+    const [parseElapsed, setParseElapsed] = useState(0);
+    const [estimatedTotalTime, setEstimatedTotalTime] = useState(8);
 
     useEffect(() => {
         const urlParams = new URLSearchParams(window.location.search);
@@ -185,6 +188,23 @@ export default function AdminPracticeUpload() {
         if (!jsonImportText.trim()) return;
         setIsParsingAI(true);
         setImportStatus(""); setImportMessage("");
+
+        const charCount = jsonImportText.trim().length;
+        const estSec = Math.min(20, Math.max(5, Math.ceil(charCount / 300)));
+        setEstimatedTotalTime(estSec);
+        setParseProgress(3);
+        setParseElapsed(0);
+
+        const startTime = Date.now();
+        const timerInterval = setInterval(() => {
+            const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
+            setParseElapsed(elapsedSeconds);
+
+            const elapsedRatio = (Date.now() - startTime) / (estSec * 1000);
+            const calculatedProgress = Math.min(93, Math.round(3 + 90 * (1 - Math.exp(-elapsedRatio * 1.5))));
+            setParseProgress(calculatedProgress);
+        }, 200);
+
         try {
             const res = await fetch("/api/ai/parse-practice", {
                 method: "POST",
@@ -192,18 +212,25 @@ export default function AdminPracticeUpload() {
                 body: JSON.stringify({ text: jsonImportText })
             });
             const d = await res.json();
+            clearInterval(timerInterval);
+
             if (res.ok && d.success) {
-                applyParsedData(d.data);
-                setImportStatus("success");
-                setImportMessage("AI đã phân tích thành công. Vui lòng kiểm tra nội dung bên dưới rồi bấm Xuất bản.");
+                setParseProgress(100);
+                setTimeout(() => {
+                    applyParsedData(d.data);
+                    setImportStatus("success");
+                    setImportMessage("AI đã phân tích thành công. Vui lòng kiểm tra nội dung bên dưới rồi bấm Xuất bản.");
+                    setIsParsingAI(false);
+                }, 350);
             } else {
                 setImportStatus("error");
                 setImportMessage(d.error || "AI không thể phân tích nội dung này.");
+                setIsParsingAI(false);
             }
         } catch (e) {
+            clearInterval(timerInterval);
             setImportStatus("error");
             setImportMessage("Lỗi kết nối. Vui lòng thử lại.");
-        } finally {
             setIsParsingAI(false);
         }
     };
@@ -517,10 +544,43 @@ export default function AdminPracticeUpload() {
                         </div>
                         <div className="p-6 relative">
                             {isParsingAI && (
-                                <div className="absolute inset-0 z-10 bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center rounded-b-2xl">
-                                    <Loader2 className="h-10 w-10 text-blue-600 animate-spin mb-4" />
-                                    <p className="text-blue-700 font-semibold animate-pulse text-lg">Đang phân tích nội dung...</p>
-                                    <p className="text-slate-500 text-sm mt-2">Quá trình này có thể mất vài giây tuỳ thuộc vào độ dài nội dung</p>
+                                <div className="absolute inset-0 z-10 bg-white/95 backdrop-blur-md flex flex-col items-center justify-center p-6 rounded-b-2xl animate-fade-in">
+                                    <div className="relative w-24 h-24 flex items-center justify-center mb-3">
+                                        <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                                            <path
+                                                className="text-blue-100"
+                                                strokeWidth="3.5"
+                                                stroke="currentColor"
+                                                fill="none"
+                                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                            />
+                                            <path
+                                                className="text-blue-600 transition-all duration-300 ease-out"
+                                                strokeDasharray={`${parseProgress}, 100`}
+                                                strokeWidth="3.5"
+                                                strokeLinecap="round"
+                                                stroke="currentColor"
+                                                fill="none"
+                                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                            />
+                                        </svg>
+                                        <div className="absolute flex flex-col items-center justify-center">
+                                            <span className="text-xl font-extrabold text-blue-700 font-mono tracking-tight">{parseProgress}%</span>
+                                        </div>
+                                    </div>
+                                    <p className="text-slate-800 font-bold text-base mb-1">Đang phân tích cấu trúc bài tập...</p>
+                                    <p className="text-slate-500 text-xs mb-3 text-center max-w-sm">AI đang nhận diện tiêu đề, bài đọc/nghe, danh sách câu hỏi & đáp án</p>
+                                    <div className="flex items-center gap-2.5 bg-blue-50 border border-blue-100 px-3.5 py-1.5 rounded-full text-xs font-medium text-blue-800">
+                                        <div className="flex items-center gap-1.5">
+                                            <span className="relative flex h-2 w-2">
+                                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                                                <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-600"></span>
+                                            </span>
+                                            <span>Đã chạy: <b>{parseElapsed}s</b></span>
+                                        </div>
+                                        <span className="text-blue-300">•</span>
+                                        <div>Ước tính: ~<b>{Math.max(1, estimatedTotalTime - parseElapsed)}s</b> còn lại</div>
+                                    </div>
                                 </div>
                             )}
                             <p className="text-sm text-slate-500 mb-3">Dán <b>đoạn văn bản thô</b> (kèm câu hỏi), bài tập copy từ Word, hoặc đoạn JSON vào đây. AI sẽ tự động phân tích và điền vào form soạn thủ công để bạn kiểm tra trước khi lưu.</p>
