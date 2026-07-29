@@ -94,67 +94,36 @@ export default function AdminPracticeUpload() {
         setParts(newParts);
     };
 
+    const [parsedSkillsMap, setParsedSkillsMap] = useState<Record<string, any>>({});
     const [importStatus, setImportStatus] = useState<"" | "success" | "error">("");
     const [importMessage, setImportMessage] = useState("");
 
-    const applyParsedData = (parsed: any) => {
-        let content = parsed;
-        let detectedSkill = "";
+    const loadSkillFromData = (targetSkill: string, skillData: any) => {
+        if (!skillData) return;
+        setSkill(targetSkill);
 
-        if (Array.isArray(parsed)) {
-            let matched = parsed.find(item => item.skill?.toLowerCase() === skill);
-            if (!matched && parsed.length > 0) matched = parsed[0];
-            if (matched) {
-                content = matched.content || matched;
-                if (matched.title && !title.trim()) setTitle(matched.title);
-                if (matched.difficulty && !difficulty) setDifficulty(matched.difficulty);
-                detectedSkill = matched.skill?.toLowerCase();
+        if (skillData.title) setTitle(skillData.title);
+        if (skillData.difficulty) setDifficulty(skillData.difficulty);
+
+        const content = skillData.content || skillData;
+
+        if (targetSkill === "reading") {
+            const passages = content.passages || (Array.isArray(content) ? content : null);
+            if (passages && Array.isArray(passages)) {
+                const safePassages = passages.map((p: any) => ({
+                    ...p,
+                    questions: p.questions?.map((q: any) => ({
+                        ...q,
+                        options: q.options || ["", "", "", ""]
+                    })) || []
+                }));
+                setParts(safePassages);
             }
-        } else {
-            if (parsed[skill]) {
-                content = parsed[skill].content || parsed[skill];
-                if (parsed[skill].title && !title.trim()) setTitle(parsed[skill].title);
-                if (parsed[skill].difficulty && !difficulty) setDifficulty(parsed[skill].difficulty);
-                detectedSkill = parsed[skill].skill?.toLowerCase();
-            } else if (parsed.content) {
-                content = parsed.content;
-            } else {
-                if (parsed.reading) { content = parsed.reading.content || parsed.reading; detectedSkill = "reading"; }
-                else if (parsed.listening) { content = parsed.listening.content || parsed.listening; detectedSkill = "listening"; }
-                else if (parsed.writing) { content = parsed.writing.content || parsed.writing; detectedSkill = "writing"; }
-                else if (parsed.speaking) { content = parsed.speaking.content || parsed.speaking; detectedSkill = "speaking"; }
-            }
-        }
-
-        if (content.title && !title.trim()) setTitle(content.title);
-        if (content.difficulty && !difficulty) setDifficulty(content.difficulty);
-
-        if (!detectedSkill) detectedSkill = content.skill?.toLowerCase();
-
-        if (!detectedSkill) {
-            if (content.passages && Array.isArray(content.passages)) detectedSkill = "reading";
-            else if (content.parts || content.audioUrl || content.tapescript) detectedSkill = "listening";
-            else if (content.writing || content.type === "TASK1" || content.task1Prompt) detectedSkill = "writing";
-            else if (content.speaking || content.part1 || content.part2) detectedSkill = "speaking";
-            else detectedSkill = skill;
-        }
-
-        setSkill(detectedSkill);
-
-        if (detectedSkill === "reading" && content.passages) {
-            const safePassages = content.passages.map((p: any) => ({
-                ...p,
-                questions: p.questions?.map((q: any) => ({
-                    ...q,
-                    options: q.options || ["", "", "", ""]
-                })) || []
-            }));
-            setParts(safePassages);
-        }
-        if (detectedSkill === "listening") {
+        } else if (targetSkill === "listening") {
             if (content.audioUrl) setAudioUrl(content.audioUrl);
-            if (content.parts) {
-                const safeParts = content.parts.map((p: any) => ({
+            const lParts = content.parts || (Array.isArray(content) ? content : null);
+            if (lParts && Array.isArray(lParts)) {
+                const safeParts = lParts.map((p: any) => ({
                     ...p,
                     questions: p.questions?.map((q: any) => ({
                         ...q,
@@ -163,9 +132,84 @@ export default function AdminPracticeUpload() {
                 }));
                 setParts(safeParts);
             }
+        } else if (targetSkill === "writing") {
+            const w = content.writing || content;
+            setWriting({
+                task1Prompt: w.task1Prompt || "",
+                task1Image: w.task1Image || "",
+                task2Prompt: w.task2Prompt || ""
+            });
+        } else if (targetSkill === "speaking") {
+            const sp = content.speaking || content;
+            setSpeaking({
+                part1: typeof sp.part1 === "string" ? sp.part1 : (Array.isArray(sp.part1) ? sp.part1.join("\n") : ""),
+                part2: typeof sp.part2 === "string" ? sp.part2 : (Array.isArray(sp.part2) ? sp.part2.join("\n") : ""),
+                part3: typeof sp.part3 === "string" ? sp.part3 : (Array.isArray(sp.part3) ? sp.part3.join("\n") : "")
+            });
         }
-        if (detectedSkill === "writing" && content.writing) setWriting(content.writing);
-        if (detectedSkill === "speaking" && content.speaking) setSpeaking(content.speaking);
+    };
+
+    const applyParsedData = (parsed: any) => {
+        let items: any[] = [];
+        if (Array.isArray(parsed)) {
+            items = parsed;
+        } else if (typeof parsed === "object" && parsed !== null) {
+            if (parsed.reading || parsed.listening || parsed.writing || parsed.speaking) {
+                if (parsed.reading) items.push({ skill: "reading", ...parsed.reading });
+                if (parsed.listening) items.push({ skill: "listening", ...parsed.listening });
+                if (parsed.writing) items.push({ skill: "writing", ...parsed.writing });
+                if (parsed.speaking) items.push({ skill: "speaking", ...parsed.speaking });
+            } else {
+                items = [parsed];
+            }
+        }
+
+        const newMap: Record<string, any> = {};
+
+        items.forEach((item: any) => {
+            const itemSkill = (item.skill || "").toLowerCase();
+            const content = item.content || item;
+            const itemTitle = item.title || content.title || title;
+            const itemDifficulty = item.difficulty || content.difficulty || difficulty;
+
+            let sType = itemSkill;
+            if (!sType) {
+                if (content.passages || Array.isArray(content.passages)) sType = "reading";
+                else if (content.parts || content.audioUrl || content.tapescript) sType = "listening";
+                else if (content.task1Prompt || content.task2Prompt || content.writing) sType = "writing";
+                else if (content.part1 || content.part2 || content.part3 || content.speaking) sType = "speaking";
+                else sType = skill;
+            }
+
+            newMap[sType] = {
+                title: itemTitle,
+                difficulty: itemDifficulty,
+                content: content
+            };
+
+            // Pre-fill state for writing and speaking immediately
+            if (sType === "writing") {
+                const w = content.writing || content;
+                setWriting({
+                    task1Prompt: w.task1Prompt || "",
+                    task1Image: w.task1Image || "",
+                    task2Prompt: w.task2Prompt || ""
+                });
+            }
+            if (sType === "speaking") {
+                const sp = content.speaking || content;
+                setSpeaking({
+                    part1: typeof sp.part1 === "string" ? sp.part1 : (Array.isArray(sp.part1) ? sp.part1.join("\n") : ""),
+                    part2: typeof sp.part2 === "string" ? sp.part2 : (Array.isArray(sp.part2) ? sp.part2.join("\n") : ""),
+                    part3: typeof sp.part3 === "string" ? sp.part3 : (Array.isArray(sp.part3) ? sp.part3.join("\n") : "")
+                });
+            }
+        });
+
+        setParsedSkillsMap(newMap);
+
+        const activeSkill = newMap[skill] ? skill : (Object.keys(newMap)[0] || skill);
+        loadSkillFromData(activeSkill, newMap[activeSkill]);
 
         setShowJsonModal(false);
         setJsonImportText("");
@@ -327,7 +371,12 @@ export default function AdminPracticeUpload() {
                     <label className="block text-sm font-semibold text-slate-700 mb-3">Chọn Kỹ Năng</label>
                     <div className="flex gap-2 flex-wrap">
                         {["reading", "listening", "writing", "speaking"].map(s => (
-                            <button key={s} onClick={() => setSkill(s)}
+                            <button key={s} onClick={() => {
+                                setSkill(s);
+                                if (parsedSkillsMap[s]) {
+                                    loadSkillFromData(s, parsedSkillsMap[s]);
+                                }
+                            }}
                                 className={`px-6 py-2.5 rounded-lg text-sm font-bold capitalize transition-all ${skill === s ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20 ring-2 ring-blue-600 ring-offset-2' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
                                 {s}
                             </button>
