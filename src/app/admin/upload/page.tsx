@@ -121,14 +121,14 @@ export default function AdminPracticeUpload() {
                     
                     try {
                         const skillsToSave = ['reading', 'listening', 'writing', 'speaking'];
-                        for (let s of skillsToSave) {
+                        for (const s of skillsToSave) {
                             let sTitle = baseTitle;
                             if (skillsObj[s] && skillsObj[s].title) {
                                 sTitle = baseTitle + " - " + s.toUpperCase();
                             }
                             
                             const apiEndpoint = window.location.pathname.includes('/admin') ? '/api/admin/practice' : '/api/teacher/practice';
-                            let payloadContent = skillsObj[s].content || skillsObj[s];
+                            const payloadContent = skillsObj[s].content || skillsObj[s];
 
                             await fetch(apiEndpoint, {
                                 method: "POST",
