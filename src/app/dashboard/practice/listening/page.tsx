@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Headphones, ArrowLeft, CheckCircle2, XCircle, Clock, Play, Pause, ChevronRight, ChevronLeft } from "lucide-react";
 import PracticeSetListView from "@/components/practice/PracticeSetListView";
@@ -9,7 +9,9 @@ import ResultsSummaryModal from "@/components/practice/ResultsSummaryModal";
 import OverallScorecardModal from "@/components/practice/OverallScorecardModal";
 
 interface Question {
-    id: number;
+    id?: number;
+    globalId: number;
+    qKey: string;
     type: "fill" | "mcq" | "tf" | "multi-mcq" | "matching";
     text: string;
     options?: string[];
@@ -114,11 +116,37 @@ export default function ListeningPractice() {
 
     const formatTime = (s: number) => `${Math.floor(s / 60).toString().padStart(2, "0")}:${Math.floor(s % 60).toString().padStart(2, "0")}`;
 
-    const parts: Part[] = parsedContent?.parts || [];
-    const currentPart = parts[activePartIdx] || { questions: [] };
+    // Normalize parts & generate 100% sequential globalId (1..N) and qKey (q_1..q_N)
+    const normalizedParts = useMemo(() => {
+        if (!parsedContent) return [];
 
-    // Unique key per question: p{partIdx}_q{qIdx}
-    const getQKey = (pIdx: number, qIdx: number) => `p${pIdx}_q${qIdx}`;
+        let rawParts: any[] = [];
+        if (Array.isArray(parsedContent.parts) && parsedContent.parts.length > 0) {
+            rawParts = parsedContent.parts;
+        } else if (Array.isArray(parsedContent.questions)) {
+            rawParts = [{ title: "Part 1", questions: parsedContent.questions }];
+        }
+
+        let globalCounter = 1;
+        return rawParts.map((p, pIdx) => ({
+            ...p,
+            partIdx: pIdx,
+            questions: (p.questions || []).map((q: any, qIdx: number) => {
+                const currentGlobalId = globalCounter++;
+                return {
+                    ...q,
+                    globalId: currentGlobalId,
+                    qKey: `q_${currentGlobalId}`,
+                    partIdx: pIdx,
+                    qIdxInPart: qIdx
+                };
+            })
+        }));
+    }, [parsedContent]);
+
+    const currentPart = normalizedParts[activePartIdx] || { questions: [] };
+    const allQuestionsFlat = useMemo(() => normalizedParts.flatMap(p => p.questions), [normalizedParts]);
+
     const getAnswer = (qKey: string) => answers[qKey] || "";
     const getMultiAnswer = (qKey: string): string[] => answers[qKey] || [];
 
@@ -139,20 +167,11 @@ export default function ListeningPractice() {
         });
     };
 
-    // Global questions payload mapping
-    const allQuestionsWithKeys = parts.flatMap((p, pIdx) =>
-        (p.questions || []).map((q, qIdx) => ({
-            ...q,
-            globalId: q.id || (pIdx * 100 + qIdx + 1),
-            qKey: getQKey(pIdx, qIdx)
-        }))
-    );
-
     const getWrongByQKey = (qKey: string) => {
         if (!evaluation?.wrongAnswers) return null;
-        const targetQ = allQuestionsWithKeys.find(x => x.qKey === qKey);
+        const targetQ = allQuestionsFlat.find(x => x.qKey === qKey);
         if (!targetQ) return null;
-        return evaluation.wrongAnswers.find((w: any) => w.questionId === targetQ.globalId || w.questionId === targetQ.id);
+        return evaluation.wrongAnswers.find((w: any) => w.questionId === targetQ.globalId);
     };
 
     const isCorrect = (qKey: string) => {
@@ -170,7 +189,7 @@ export default function ListeningPractice() {
         if (audioRef.current) audioRef.current.pause();
 
         const formattedUserAnswers: Record<number, any> = {};
-        allQuestionsWithKeys.forEach(q => {
+        allQuestionsFlat.forEach(q => {
             formattedUserAnswers[q.globalId] = q.type === "multi-mcq" ? getMultiAnswer(q.qKey) : getAnswer(q.qKey);
         });
 
@@ -180,7 +199,7 @@ export default function ListeningPractice() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     practiceSetId: selectedSet?.id,
-                    questions: allQuestionsWithKeys.map(q => ({
+                    questions: allQuestionsFlat.map(q => ({
                         id: q.globalId,
                         text: q.text,
                         answerKey: q.type === "multi-mcq" ? q.answers : q.answer,
@@ -195,7 +214,6 @@ export default function ListeningPractice() {
                 setIsSubmitted(true);
                 setShowResultsModal(true);
 
-                // Check latest 4 skill stats
                 fetch("/api/user/stats")
                     .then(r => r.json())
                     .then(stats => {
@@ -242,7 +260,7 @@ export default function ListeningPractice() {
             <ResultsSummaryModal
                 isOpen={showResultsModal}
                 skill="listening"
-                evaluation={{ ...evaluation, totalQuestions: allQuestionsWithKeys.length }}
+                evaluation={{ ...evaluation, totalQuestions: allQuestionsFlat.length }}
                 onReviewDetails={() => setShowResultsModal(false)}
                 onRetry={() => {
                     setIsSubmitted(false); setEvaluation(null); setAnswers({}); setTimeLeft(40 * 60); setAudioProgress(0); setShowResultsModal(false);
@@ -284,7 +302,7 @@ export default function ListeningPractice() {
                         </div>
                         <div>
                             <h1 className="text-lg font-bold text-slate-900 line-clamp-1">{selectedSet.title}</h1>
-                            <p className="text-xs text-slate-500">Luyện nghe IELTS — Tổng số câu: <b>{allQuestionsWithKeys.length} câu</b></p>
+                            <p className="text-xs text-slate-500">Luyện nghe IELTS — Tổng số câu: <b>{allQuestionsFlat.length} câu</b></p>
                         </div>
                     </div>
                     <div className="flex items-center gap-3">
@@ -320,9 +338,9 @@ export default function ListeningPractice() {
                 )}
 
                 {/* Part Navigation Tabs */}
-                {parts.length > 1 && (
+                {normalizedParts.length > 1 && (
                     <div className="flex gap-2 border-b border-slate-200 bg-white p-2 rounded-2xl border shadow-sm overflow-x-auto">
-                        {parts.map((p, pIdx) => (
+                        {normalizedParts.map((p, pIdx) => (
                             <button
                                 key={pIdx}
                                 onClick={() => setActivePartIdx(pIdx)}
@@ -340,13 +358,13 @@ export default function ListeningPractice() {
                     </div>
                 )}
 
-                {/* Main Questions Section for Active Part */}
+                {/* Main Questions Section */}
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-6">
                     <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                         <h3 className="font-bold text-slate-800 text-sm">
                             {currentPart.title || `Part ${activePartIdx + 1}`} ({currentPart.questions?.length || 0} câu)
                         </h3>
-                        <span className="text-xs text-slate-400">Part {activePartIdx + 1}/{parts.length}</span>
+                        <span className="text-xs text-slate-400">Part {activePartIdx + 1}/{normalizedParts.length}</span>
                     </div>
 
                     {currentPart.mapImage && (
@@ -359,14 +377,13 @@ export default function ListeningPractice() {
                         <p className="text-xs text-slate-400 italic py-4">Không có câu hỏi cho Part này.</p>
                     ) : (
                         <div className="space-y-5">
-                            {currentPart.questions.map((q, qIdx) => {
-                                const qKey = getQKey(activePartIdx, qIdx);
-                                const wrong = getWrongByQKey(qKey);
-                                const correctState = isCorrect(qKey);
+                            {currentPart.questions.map((q: Question) => {
+                                const wrong = getWrongByQKey(q.qKey);
+                                const correctState = isCorrect(q.qKey);
 
                                 return (
                                     <div
-                                        key={qKey}
+                                        key={q.qKey}
                                         className={`p-4 rounded-xl border transition-all ${
                                             isSubmitted
                                                 ? correctState
@@ -376,7 +393,7 @@ export default function ListeningPractice() {
                                         }`}>
                                         <div className="flex items-start gap-3">
                                             <span className="flex-shrink-0 h-6 w-6 rounded-full bg-orange-600 text-white text-xs font-bold flex items-center justify-center">
-                                                {qIdx + 1}
+                                                {q.globalId}
                                             </span>
                                             <div className="flex-1 space-y-3">
                                                 <p className="text-sm font-semibold text-slate-800">{q.text}</p>
@@ -385,8 +402,8 @@ export default function ListeningPractice() {
                                                 {q.type === "fill" && (
                                                     <input
                                                         type="text"
-                                                        value={getAnswer(qKey)}
-                                                        onChange={e => handleAnswer(qKey, e.target.value)}
+                                                        value={getAnswer(q.qKey)}
+                                                        onChange={e => handleAnswer(q.qKey, e.target.value)}
                                                         disabled={isSubmitted}
                                                         className="w-full max-w-md border border-slate-300 rounded-xl px-3.5 py-2 text-sm focus:ring-2 focus:ring-orange-500 outline-none bg-white font-medium"
                                                         placeholder="Nhập câu trả lời..."
@@ -396,13 +413,13 @@ export default function ListeningPractice() {
                                                 {/* Single MCQ */}
                                                 {q.type === "mcq" && q.options && (
                                                     <div className="space-y-1.5">
-                                                        {q.options.map((opt, i) => (
-                                                            <label key={i} className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer hover:bg-white transition border ${getAnswer(qKey) === opt ? "bg-orange-50 border-orange-300 font-semibold" : "border-transparent"}`}>
+                                                        {q.options.map((opt: string, i: number) => (
+                                                            <label key={i} className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer hover:bg-white transition border ${getAnswer(q.qKey) === opt ? "bg-orange-50 border-orange-300 font-semibold" : "border-transparent"}`}>
                                                                 <input
                                                                     type="radio"
-                                                                    name={`radio-${selectedSet.id}-${qKey}`}
-                                                                    checked={getAnswer(qKey) === opt}
-                                                                    onChange={() => handleAnswer(qKey, opt)}
+                                                                    name={`radio-${selectedSet.id}-${q.globalId}`}
+                                                                    checked={getAnswer(q.qKey) === opt}
+                                                                    onChange={() => handleAnswer(q.qKey, opt)}
                                                                     disabled={isSubmitted}
                                                                     className="h-4 w-4 text-orange-600"
                                                                 />
@@ -418,10 +435,10 @@ export default function ListeningPractice() {
                                                         {["TRUE", "FALSE", "NOT GIVEN"].map(opt => (
                                                             <button
                                                                 key={opt}
-                                                                onClick={() => handleAnswer(qKey, opt)}
+                                                                onClick={() => handleAnswer(q.qKey, opt)}
                                                                 disabled={isSubmitted}
                                                                 className={`px-4 py-2 rounded-xl text-xs font-bold border transition ${
-                                                                    getAnswer(qKey) === opt
+                                                                    getAnswer(q.qKey) === opt
                                                                         ? "bg-orange-600 text-white border-orange-600 shadow-sm"
                                                                         : "bg-white text-slate-600 border-slate-300 hover:bg-slate-100"
                                                                 }`}>
@@ -434,12 +451,12 @@ export default function ListeningPractice() {
                                                 {/* Multi MCQ */}
                                                 {q.type === "multi-mcq" && q.options && (
                                                     <div className="space-y-1.5">
-                                                        {q.options.map((opt, i) => (
-                                                            <label key={i} className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer hover:bg-white transition border ${getMultiAnswer(qKey).includes(opt) ? "bg-orange-50 border-orange-300 font-semibold" : "border-transparent"}`}>
+                                                        {q.options.map((opt: string, i: number) => (
+                                                            <label key={i} className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer hover:bg-white transition border ${getMultiAnswer(q.qKey).includes(opt) ? "bg-orange-50 border-orange-300 font-semibold" : "border-transparent"}`}>
                                                                 <input
                                                                     type="checkbox"
-                                                                    checked={getMultiAnswer(qKey).includes(opt)}
-                                                                    onChange={() => handleMultiAnswer(qKey, opt)}
+                                                                    checked={getMultiAnswer(q.qKey).includes(opt)}
+                                                                    onChange={() => handleMultiAnswer(q.qKey, opt)}
                                                                     disabled={isSubmitted}
                                                                     className="h-4 w-4 text-orange-600 rounded"
                                                                 />
@@ -452,12 +469,12 @@ export default function ListeningPractice() {
                                                 {/* Matching */}
                                                 {q.type === "matching" && (
                                                     <select
-                                                        value={getAnswer(qKey)}
-                                                        onChange={e => handleAnswer(qKey, e.target.value)}
+                                                        value={getAnswer(q.qKey)}
+                                                        onChange={e => handleAnswer(q.qKey, e.target.value)}
                                                         disabled={isSubmitted}
                                                         className="w-full border border-slate-300 rounded-xl px-3.5 py-2 text-sm focus:ring-2 focus:ring-orange-500 outline-none bg-white font-medium">
                                                         <option value="">-- Chọn đáp án --</option>
-                                                        {q.options?.map((opt, i) => (
+                                                        {q.options?.map((opt: string, i: number) => (
                                                             <option key={i} value={opt}>{cleanOptText(opt)}</option>
                                                         ))}
                                                     </select>
@@ -501,10 +518,10 @@ export default function ListeningPractice() {
                                 <ChevronLeft className="h-4 w-4" /> Part trước
                             </Button>
 
-                            <span className="text-xs text-slate-500 font-bold">Part {activePartIdx + 1}/{parts.length}</span>
+                            <span className="text-xs text-slate-500 font-bold">Part {activePartIdx + 1}/{normalizedParts.length}</span>
 
                             <Button
-                                disabled={activePartIdx === parts.length - 1}
+                                disabled={activePartIdx === normalizedParts.length - 1}
                                 onClick={() => setActivePartIdx(p => p + 1)}
                                 variant="outline"
                                 className="text-xs font-semibold px-3.5 py-2 rounded-xl">

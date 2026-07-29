@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { BookOpen, ArrowLeft, CheckCircle2, XCircle, Clock, ChevronRight, ChevronLeft } from "lucide-react";
 import PracticeSetListView from "@/components/practice/PracticeSetListView";
@@ -10,7 +10,9 @@ import OverallScorecardModal from "@/components/practice/OverallScorecardModal";
 import FloatingTextHighlighter from "@/components/practice/FloatingTextHighlighter";
 
 interface Question {
-    id: number;
+    id?: number;
+    globalId: number;
+    qKey: string;
     type: "fill" | "mcq" | "tf" | "multi-mcq" | "matching";
     text: string;
     options?: string[];
@@ -82,11 +84,39 @@ export default function ReadingPractice() {
 
     const formatTime = (s: number) => `${Math.floor(s / 60).toString().padStart(2, "0")}:${(s % 60).toString().padStart(2, "0")}`;
 
-    const passages: Passage[] = parsed?.passages || (parsed?.passage ? [{ title: parsed.title, text: parsed.passage, questions: parsed.questions || [] }] : []);
-    const currentPassage = passages[activePassageIdx] || { title: "", text: "", questions: [] };
+    // Normalize passages & generate 100% sequential globalId (1..N) and qKey (q_1..q_N)
+    const normalizedPassages = useMemo(() => {
+        if (!parsed) return [];
 
-    // Unique Key Helper per question: p{passageIdx}_q{questionIdx}
-    const getQKey = (pIdx: number, qIdx: number) => `p${pIdx}_q${qIdx}`;
+        let rawPassages: any[] = [];
+        if (Array.isArray(parsed.passages) && parsed.passages.length > 0) {
+            rawPassages = parsed.passages;
+        } else if (parsed.passage || parsed.text) {
+            rawPassages = [{ title: parsed.title || "Passage 1", text: parsed.passage || parsed.text, questions: parsed.questions || [] }];
+        } else if (Array.isArray(parsed.questions)) {
+            rawPassages = [{ title: parsed.title || "Passage 1", text: "", questions: parsed.questions }];
+        }
+
+        let globalCounter = 1;
+        return rawPassages.map((p, pIdx) => ({
+            ...p,
+            passageIdx: pIdx,
+            questions: (p.questions || []).map((q: any, qIdx: number) => {
+                const currentGlobalId = globalCounter++;
+                return {
+                    ...q,
+                    globalId: currentGlobalId,
+                    qKey: `q_${currentGlobalId}`,
+                    passageIdx: pIdx,
+                    qIdxInPassage: qIdx
+                };
+            })
+        }));
+    }, [parsed]);
+
+    const currentPassage = normalizedPassages[activePassageIdx] || { title: "", text: "", questions: [] };
+    const allQuestionsFlat = useMemo(() => normalizedPassages.flatMap(p => p.questions), [normalizedPassages]);
+
     const getAnswer = (qKey: string) => answers[qKey] || "";
     const getMultiAnswer = (qKey: string): string[] => answers[qKey] || [];
 
@@ -107,20 +137,11 @@ export default function ReadingPractice() {
         });
     };
 
-    // Global questions list with unique keys for AI payload
-    const allQuestionsWithKeys = passages.flatMap((p, pIdx) =>
-        (p.questions || []).map((q, qIdx) => ({
-            ...q,
-            globalId: q.id || (pIdx * 100 + qIdx + 1),
-            qKey: getQKey(pIdx, qIdx)
-        }))
-    );
-
     const getWrongByQKey = (qKey: string) => {
         if (!evaluation?.wrongAnswers) return null;
-        const targetQ = allQuestionsWithKeys.find(x => x.qKey === qKey);
+        const targetQ = allQuestionsFlat.find(x => x.qKey === qKey);
         if (!targetQ) return null;
-        return evaluation.wrongAnswers.find((w: any) => w.questionId === targetQ.globalId || w.questionId === targetQ.id);
+        return evaluation.wrongAnswers.find((w: any) => w.questionId === targetQ.globalId);
     };
 
     const isCorrect = (qKey: string) => {
@@ -134,9 +155,9 @@ export default function ReadingPractice() {
     const handleSubmit = async () => {
         setSubmitting(true); setTimerRunning(false);
 
-        // Format user answers payload using globalId
+        // Format user answers payload strictly using unique sequential globalId
         const formattedUserAnswers: Record<number, any> = {};
-        allQuestionsWithKeys.forEach(q => {
+        allQuestionsFlat.forEach(q => {
             formattedUserAnswers[q.globalId] = q.type === "multi-mcq" ? getMultiAnswer(q.qKey) : getAnswer(q.qKey);
         });
 
@@ -146,7 +167,7 @@ export default function ReadingPractice() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     practiceSetId: selected?.id,
-                    questions: allQuestionsWithKeys.map(q => ({
+                    questions: allQuestionsFlat.map(q => ({
                         id: q.globalId,
                         text: q.text,
                         answerKey: q.type === "multi-mcq" ? q.answers : q.answer,
@@ -161,7 +182,6 @@ export default function ReadingPractice() {
                 setSubmitted(true);
                 setShowResultsModal(true);
 
-                // Fetch latest user stats to check overall band
                 fetch("/api/user/stats")
                     .then(r => r.json())
                     .then(stats => {
@@ -204,7 +224,7 @@ export default function ReadingPractice() {
             <ResultsSummaryModal
                 isOpen={showResultsModal}
                 skill="reading"
-                evaluation={{ ...evaluation, totalQuestions: allQuestionsWithKeys.length }}
+                evaluation={{ ...evaluation, totalQuestions: allQuestionsFlat.length }}
                 onReviewDetails={() => setShowResultsModal(false)}
                 onRetry={() => {
                     setSubmitted(false); setEvaluation(null); setAnswers({}); setShowResultsModal(false); setTimeLeft(60 * 60);
@@ -246,7 +266,7 @@ export default function ReadingPractice() {
                         </div>
                         <div>
                             <h1 className="text-lg font-bold text-slate-900 line-clamp-1">{selected.title}</h1>
-                            <p className="text-xs text-slate-500">Luyện đọc IELTS — Tổng số câu: <b>{allQuestionsWithKeys.length} câu</b></p>
+                            <p className="text-xs text-slate-500">Luyện đọc IELTS — Tổng số câu: <b>{allQuestionsFlat.length} câu</b></p>
                         </div>
                     </div>
                     <div className="flex items-center gap-3">
@@ -263,9 +283,9 @@ export default function ReadingPractice() {
                 </div>
 
                 {/* Passage Tabs Navigation */}
-                {passages.length > 1 && (
+                {normalizedPassages.length > 1 && (
                     <div className="flex gap-2 border-b border-slate-200 bg-white p-2 rounded-2xl border shadow-sm overflow-x-auto">
-                        {passages.map((p, pIdx) => {
+                        {normalizedPassages.map((p, pIdx) => {
                             const qCount = p.questions?.length || 0;
                             return (
                                 <button
@@ -286,9 +306,9 @@ export default function ReadingPractice() {
                     </div>
                 )}
 
-                {/* Main Split Layout: Passage Text Left | Questions Right */}
+                {/* Main Split Layout */}
                 <div className="grid lg:grid-cols-2 gap-6">
-                    {/* Left: Passage Text with Floating Highlighter */}
+                    {/* Left: Passage Text */}
                     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col max-h-[75vh]">
                         <div className="bg-slate-50 border-b border-slate-200 p-3 px-6 flex justify-between items-center">
                             <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
@@ -304,27 +324,26 @@ export default function ReadingPractice() {
                         </FloatingTextHighlighter>
                     </div>
 
-                    {/* Right: Questions for Current Active Passage */}
+                    {/* Right: Questions for Active Passage */}
                     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-5 overflow-y-auto max-h-[75vh] flex flex-col justify-between">
                         <div className="space-y-5">
                             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                                 <span className="font-bold text-slate-800 text-sm">
                                     Questions for Passage {activePassageIdx + 1} ({currentPassage.questions?.length || 0} câu)
                                 </span>
-                                <span className="text-xs text-slate-400">Trang {activePassageIdx + 1}/{passages.length}</span>
+                                <span className="text-xs text-slate-400">Trang {activePassageIdx + 1}/{normalizedPassages.length}</span>
                             </div>
 
                             {(!currentPassage.questions || currentPassage.questions.length === 0) ? (
                                 <p className="text-xs text-slate-400 italic py-4">Không có câu hỏi cho Passage này.</p>
                             ) : (
-                                currentPassage.questions.map((q, qIdx) => {
-                                    const qKey = getQKey(activePassageIdx, qIdx);
-                                    const wrong = getWrongByQKey(qKey);
-                                    const correctState = isCorrect(qKey);
+                                currentPassage.questions.map((q: Question) => {
+                                    const wrong = getWrongByQKey(q.qKey);
+                                    const correctState = isCorrect(q.qKey);
 
                                     return (
                                         <div
-                                            key={qKey}
+                                            key={q.qKey}
                                             className={`p-4 rounded-xl border transition-all ${
                                                 submitted
                                                     ? correctState
@@ -333,15 +352,15 @@ export default function ReadingPractice() {
                                                     : "bg-slate-50 border-slate-200"
                                             }`}>
                                             <p className="text-sm font-semibold text-slate-900 mb-3 leading-relaxed">
-                                                {qIdx + 1}. {q.text}
+                                                {q.globalId}. {q.text}
                                             </p>
 
                                             {/* Fill-in-the-blank */}
                                             {q.type === "fill" && (
                                                 <input
                                                     type="text"
-                                                    value={getAnswer(qKey)}
-                                                    onChange={e => handleAnswer(qKey, e.target.value)}
+                                                    value={getAnswer(q.qKey)}
+                                                    onChange={e => handleAnswer(q.qKey, e.target.value)}
                                                     disabled={submitted}
                                                     className="w-full border border-slate-300 rounded-xl px-3.5 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white font-medium"
                                                     placeholder="Nhập câu trả lời..."
@@ -349,13 +368,13 @@ export default function ReadingPractice() {
                                             )}
 
                                             {/* Single MCQ */}
-                                            {q.type === "mcq" && q.options?.map((opt, i) => (
-                                                <label key={i} className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer hover:bg-white transition mb-1.5 border ${getAnswer(qKey) === opt ? "bg-blue-50 border-blue-300 font-semibold" : "border-transparent"}`}>
+                                            {q.type === "mcq" && q.options?.map((opt: string, i: number) => (
+                                                <label key={i} className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer hover:bg-white transition mb-1.5 border ${getAnswer(q.qKey) === opt ? "bg-blue-50 border-blue-300 font-semibold" : "border-transparent"}`}>
                                                     <input
                                                         type="radio"
-                                                        name={`radio-${selected.id}-${qKey}`}
-                                                        checked={getAnswer(qKey) === opt}
-                                                        onChange={() => handleAnswer(qKey, opt)}
+                                                        name={`radio-${selected.id}-${q.globalId}`}
+                                                        checked={getAnswer(q.qKey) === opt}
+                                                        onChange={() => handleAnswer(q.qKey, opt)}
                                                         disabled={submitted}
                                                         className="h-4 w-4 text-blue-600"
                                                     />
@@ -369,10 +388,10 @@ export default function ReadingPractice() {
                                                     {["TRUE", "FALSE", "NOT GIVEN"].map(opt => (
                                                         <button
                                                             key={opt}
-                                                            onClick={() => handleAnswer(qKey, opt)}
+                                                            onClick={() => handleAnswer(q.qKey, opt)}
                                                             disabled={submitted}
                                                             className={`px-4 py-2 rounded-xl text-xs font-bold border transition ${
-                                                                getAnswer(qKey) === opt
+                                                                getAnswer(q.qKey) === opt
                                                                     ? "bg-blue-600 text-white border-blue-600 shadow-sm"
                                                                     : "bg-white text-slate-600 border-slate-300 hover:bg-slate-100"
                                                             }`}>
@@ -383,12 +402,12 @@ export default function ReadingPractice() {
                                             )}
 
                                             {/* Multi-MCQ */}
-                                            {q.type === "multi-mcq" && q.options?.map((opt, i) => (
-                                                <label key={i} className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer hover:bg-white transition mb-1.5 border ${getMultiAnswer(qKey).includes(opt) ? "bg-blue-50 border-blue-300 font-semibold" : "border-transparent"}`}>
+                                            {q.type === "multi-mcq" && q.options?.map((opt: string, i: number) => (
+                                                <label key={i} className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer hover:bg-white transition mb-1.5 border ${getMultiAnswer(q.qKey).includes(opt) ? "bg-blue-50 border-blue-300 font-semibold" : "border-transparent"}`}>
                                                     <input
                                                         type="checkbox"
-                                                        checked={getMultiAnswer(qKey).includes(opt)}
-                                                        onChange={() => handleMultiAnswer(qKey, opt)}
+                                                        checked={getMultiAnswer(q.qKey).includes(opt)}
+                                                        onChange={() => handleMultiAnswer(q.qKey, opt)}
                                                         disabled={submitted}
                                                         className="h-4 w-4 text-blue-600 rounded"
                                                     />
@@ -399,12 +418,12 @@ export default function ReadingPractice() {
                                             {/* Matching */}
                                             {q.type === "matching" && (
                                                 <select
-                                                    value={getAnswer(qKey)}
-                                                    onChange={e => handleAnswer(qKey, e.target.value)}
+                                                    value={getAnswer(q.qKey)}
+                                                    onChange={e => handleAnswer(q.qKey, e.target.value)}
                                                     disabled={submitted}
                                                     className="w-full border border-slate-300 rounded-xl px-3.5 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white font-medium mt-1">
                                                     <option value="">-- Chọn đáp án tương ứng --</option>
-                                                    {q.options?.map((opt, i) => (
+                                                    {q.options?.map((opt: string, i: number) => (
                                                         <option key={i} value={opt}>{cleanOptText(opt)}</option>
                                                     ))}
                                                 </select>
@@ -446,10 +465,10 @@ export default function ReadingPractice() {
                                     <ChevronLeft className="h-4 w-4" /> Trang trước
                                 </Button>
 
-                                <span className="text-xs text-slate-500 font-bold">Passage {activePassageIdx + 1}/{passages.length}</span>
+                                <span className="text-xs text-slate-500 font-bold">Passage {activePassageIdx + 1}/{normalizedPassages.length}</span>
 
                                 <Button
-                                    disabled={activePassageIdx === passages.length - 1}
+                                    disabled={activePassageIdx === normalizedPassages.length - 1}
                                     onClick={() => setActivePassageIdx(p => p + 1)}
                                     variant="outline"
                                     className="text-xs font-semibold px-3.5 py-2 rounded-xl">
