@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
                     { classId: null },
                     { classId: { in: userClassIds } }
                 ],
-                ...(skill ? { skill: skill.toUpperCase() } : {})
+                ...(skill ? { skill: { in: [skill.toUpperCase(), "COMBO"] } } : {})
             },
             select: {
                 id: true,

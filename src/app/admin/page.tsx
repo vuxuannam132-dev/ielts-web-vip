@@ -714,8 +714,7 @@ function PracticeManager() {
     };
 
     const handleEdit = (s: any) => {
-        setEditing(s);
-        setJsonStr(s.content);
+        window.location.href = `/admin/upload?editId=${s.id}`;
     };
 
     const handleSave = async () => {

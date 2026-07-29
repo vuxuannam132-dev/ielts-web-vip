@@ -4,6 +4,8 @@ import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { BookOpen, ArrowLeft, CheckCircle2, XCircle, Clock, Highlighter, PenTool, Eraser } from "lucide-react";
 import Link from "next/link";
+import PracticeSetListView from "@/components/practice/PracticeSetListView";
+import ComboCompletionModal from "@/components/practice/ComboCompletionModal";
 
 interface Question {
     id: number;
@@ -17,10 +19,14 @@ interface Question {
 
 interface PracticeSet {
     id: string;
+    skill: string;
     title: string;
     description?: string;
+    difficulty?: string;
     content: string;
 }
+
+const cleanOptText = (opt: string) => opt ? opt.replace(/^[A-Z][.\)]\s*/i, "") : "";
 
 export default function ReadingPractice() {
     const [sets, setSets] = useState<PracticeSet[]>([]);
@@ -38,6 +44,7 @@ export default function ReadingPractice() {
     const passageRef = useRef<HTMLDivElement>(null);
     const [isDrawing, setIsDrawing] = useState(false);
     const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
+    const [showComboModal, setShowComboModal] = useState(false);
 
     // Setup Canvas
     useEffect(() => {
@@ -104,14 +111,19 @@ export default function ReadingPractice() {
     useEffect(() => {
         fetch("/api/practice?skill=reading")
             .then(r => r.json())
-            .then(data => { if (Array.isArray(data) && data.length) { setSets(data); setSelected(data[0]); } setLoading(false); })
+            .then(data => {
+                if (Array.isArray(data)) {
+                    setSets(data);
+                }
+                setLoading(false);
+            })
             .catch(() => setLoading(false));
     }, []);
 
     useEffect(() => {
         if (!selected) return;
         try { setParsed(JSON.parse(selected.content || "{}")); } catch { setParsed({}); }
-        setAnswers({}); setSubmitted(false); setEvaluation(null);
+        setAnswers({}); setSubmitted(false); setEvaluation(null); setShowComboModal(false);
     }, [selected]);
 
     useEffect(() => {
@@ -138,6 +150,8 @@ export default function ReadingPractice() {
     const getWrong = (qId: number) => evaluation?.wrongAnswers?.find((w: any) => w.questionId === qId);
     const isCorrect = (qId: number) => !getWrong(qId) && getAnswer(qId) !== "";
 
+    const isComboTest = selected && (selected.skill === "COMBO" || selected.title?.toLowerCase().includes("combo") || selected.description?.toLowerCase().includes("combo"));
+
     const handleSubmit = async () => {
         setSubmitting(true); setTimerRunning(false);
         const formattedAnswers: Record<number, any> = {};
@@ -149,7 +163,13 @@ export default function ReadingPractice() {
                 body: JSON.stringify({ practiceSetId: selected?.id, questions: allQuestions.map(q => ({ id: q.id, text: q.text, answerKey: q.type === "multi-mcq" ? q.answers : q.answer, type: q.type })), userAnswers: formattedAnswers })
             });
             const data = await res.json();
-            if (data.success) { setEvaluation(data.evaluation); setSubmitted(true); }
+            if (data.success) {
+                setEvaluation(data.evaluation);
+                setSubmitted(true);
+                if (isComboTest) {
+                    setShowComboModal(true);
+                }
+            }
             else alert("Lỗi: " + data.error);
         } catch { alert("Lỗi hệ thống."); }
         finally { setSubmitting(false); }
@@ -157,44 +177,48 @@ export default function ReadingPractice() {
 
     if (loading) return <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent" /></div>;
 
-    if (!sets.length || !selected) {
+    if (!selected) {
         return (
-            <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center">
-                <div className="text-center max-w-md mx-4">
-                    <div className="w-20 h-20 bg-blue-100 rounded-2xl flex items-center justify-center mx-auto mb-6"><BookOpen className="h-10 w-10 text-blue-500" /></div>
-                    <h2 className="text-2xl font-bold text-slate-900 mb-3">Chưa có bài Reading</h2>
-                    <p className="text-slate-500 mb-6">Admin chưa đăng bài tập nào. Quay lại sau nhé!</p>
-                    <Link href="/dashboard"><Button>← Về Dashboard</Button></Link>
-                </div>
-            </div>
+            <PracticeSetListView
+                skillName="reading"
+                sets={sets}
+                onSelectSet={(s) => setSelected(s)}
+            />
         );
     }
 
     return (
         <div className="min-h-[calc(100vh-4rem)] bg-gradient-to-b from-slate-50 to-blue-50/20">
+            <ComboCompletionModal
+                isOpen={showComboModal}
+                completedCount={1}
+                totalCount={4}
+                onContinue={() => {
+                    setShowComboModal(false);
+                    window.location.href = "/dashboard/practice/listening";
+                }}
+                onClose={() => {
+                    setShowComboModal(false);
+                    setSelected(null);
+                }}
+            />
+
             <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 space-y-6">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <Link href="/dashboard" className="p-2 hover:bg-slate-100 rounded-lg"><ArrowLeft className="h-5 w-5 text-slate-600" /></Link>
+                        <button onClick={() => setSelected(null)} className="p-2 hover:bg-slate-200 rounded-xl transition flex items-center gap-1.5 text-slate-700 font-medium text-sm bg-white border border-slate-200 shadow-sm">
+                            <ArrowLeft className="h-4 w-4" /> Danh sách bài
+                        </button>
                         <div className="h-10 w-10 rounded-xl bg-blue-100 flex items-center justify-center"><BookOpen className="h-5 w-5 text-blue-600" /></div>
                         <div>
-                            <h1 className="text-xl font-bold text-slate-900">Reading Practice</h1>
-                            <p className="text-sm text-slate-500">Luyện đọc IELTS</p>
+                            <h1 className="text-xl font-bold text-slate-900">{selected.title}</h1>
+                            <p className="text-xs text-slate-500">Luyện đọc IELTS</p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-sm font-mono">
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-sm font-mono shadow-sm">
                         <Clock className="h-4 w-4 text-slate-500" />
                         <span className={`font-bold ${timeLeft < 300 ? "text-red-600" : ""}`}>{formatTime(timeLeft)}</span>
                     </div>
-                </div>
-
-                <div className="flex gap-2 overflow-x-auto pb-1">
-                    {sets.map(s => (
-                        <button key={s.id} onClick={() => setSelected(s)}
-                            className={`px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition ${selected?.id === s.id ? "bg-blue-600 text-white shadow-md" : "bg-white text-slate-600 border border-slate-200 hover:bg-blue-50"}`}>
-                            {s.title}
-                        </button>
-                    ))}
                 </div>
 
                 <div className="grid lg:grid-cols-2 gap-6">
@@ -241,7 +265,7 @@ export default function ReadingPractice() {
                                 {q.type === "mcq" && q.options?.map((opt, i) => (
                                     <label key={i} className="flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-white/50">
                                         <input type="radio" name={`q-${selected?.id}-${q.id}`} checked={getAnswer(q.id) === opt} onChange={() => handleAnswer(q.id, opt)} disabled={submitted} />
-                                        <span className="text-sm">{String.fromCharCode(65 + i)}. {opt}</span>
+                                        <span className="text-sm">{String.fromCharCode(65 + i)}. {cleanOptText(opt)}</span>
                                     </label>
                                 ))}
                                 {q.type === "tf" && (
@@ -255,14 +279,14 @@ export default function ReadingPractice() {
                                 {q.type === "multi-mcq" && q.options?.map((opt, i) => (
                                     <label key={i} className="flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-white/50">
                                         <input type="checkbox" checked={getMultiAnswer(q.id).includes(opt)} onChange={() => handleMultiAnswer(q.id, opt)} disabled={submitted} className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4" />
-                                        <span className="text-sm">{String.fromCharCode(65 + i)}. {opt}</span>
+                                        <span className="text-sm">{String.fromCharCode(65 + i)}. {cleanOptText(opt)}</span>
                                     </label>
                                 ))}
                                 {q.type === "matching" && (
                                     <select value={getAnswer(q.id)} onChange={e => handleAnswer(q.id, e.target.value)} disabled={submitted} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none mt-2">
                                         <option value="">-- Chọn đáp án --</option>
                                         {q.options?.map((opt, i) => (
-                                            <option key={i} value={opt}>{opt}</option>
+                                            <option key={i} value={opt}>{cleanOptText(opt)}</option>
                                         ))}
                                     </select>
                                 )}
@@ -280,7 +304,7 @@ export default function ReadingPractice() {
                         ) : (
                             <div className="flex gap-3 mt-4">
                                 <Button variant="outline" className="flex-1" onClick={() => { setSubmitted(false); setEvaluation(null); setAnswers({}); }}>Làm lại</Button>
-                                <Link href="/dashboard" className="flex-1"><Button className="w-full bg-blue-600">Về Dashboard</Button></Link>
+                                <Button className="flex-1 bg-blue-600" onClick={() => setSelected(null)}>Danh sách bài</Button>
                             </div>
                         )}
                     </div>

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSessionFromRequest } from '@/lib/session';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: NextRequest) {
     try {
         const session = await getSessionFromRequest(request);
@@ -34,8 +36,6 @@ export async function POST(request: NextRequest) {
     }
 }
 
-export const dynamic = 'force-dynamic'
-
 export async function GET(request: NextRequest) {
     try {
         const session = await getSessionFromRequest(request);
@@ -45,6 +45,12 @@ export async function GET(request: NextRequest) {
 
         const { searchParams } = new URL(request.url);
         const skill = searchParams.get('skill');
+        const id = searchParams.get('id');
+
+        if (id) {
+            const set = await prisma.practiceSet.findUnique({ where: { id } });
+            return NextResponse.json(set);
+        }
 
         const sets = await prisma.practiceSet.findMany({
             where: skill ? { skill: skill.toUpperCase() } : undefined,
@@ -85,16 +91,19 @@ export async function PUT(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { id, contentJSON } = body;
+        const { id, title, skill, difficulty, contentJSON } = body;
 
-        if (!id || !contentJSON) {
-            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+        if (!id) {
+            return NextResponse.json({ error: 'Missing practice set id' }, { status: 400 });
         }
 
         await prisma.practiceSet.update({
             where: { id },
             data: {
-                content: JSON.stringify(contentJSON),
+                ...(title ? { title } : {}),
+                ...(skill ? { skill: skill.toUpperCase() } : {}),
+                ...(difficulty ? { difficulty } : {}),
+                ...(contentJSON ? { content: JSON.stringify(contentJSON) } : {}),
             },
         });
 

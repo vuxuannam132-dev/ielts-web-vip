@@ -47,10 +47,29 @@ export default function AdminPracticeUpload() {
     const [parseElapsed, setParseElapsed] = useState(0);
     const [estimatedTotalTime, setEstimatedTotalTime] = useState(8);
 
+    const [editId, setEditId] = useState<string | null>(null);
+
     useEffect(() => {
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('import') === 'true') {
             setShowJsonModal(true);
+        }
+        const idParam = urlParams.get('editId');
+        if (idParam) {
+            setEditId(idParam);
+            fetch(`/api/admin/practice?id=${idParam}`)
+                .then(r => r.json())
+                .then(data => {
+                    if (data && data.content) {
+                        setTitle(data.title || "");
+                        setDifficulty(data.difficulty || "Medium");
+                        setSkill(data.skill?.toLowerCase() || "reading");
+                        try {
+                            const parsed = JSON.parse(data.content);
+                            applyParsedData(parsed);
+                        } catch (e) {}
+                    }
+                });
         }
     }, []);
 
@@ -295,18 +314,26 @@ export default function AdminPracticeUpload() {
         }
 
         try {
-            const res = await fetch('/api/admin/practice', {
-                method: 'POST',
+            const endpoint = '/api/admin/practice';
+            const method = editId ? 'PUT' : 'POST';
+            const payload = editId 
+                ? { id: editId, skill, title, difficulty, contentJSON }
+                : { skill, title, difficulty, contentJSON };
+
+            const res = await fetch(endpoint, {
+                method,
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ skill, title, difficulty, contentJSON }),
+                body: JSON.stringify(payload),
             });
             if (res.ok) {
                 setSaved(true);
                 setTimeout(() => setSaved(false), 3000);
-                setTitle(""); setAudioUrl("");
-                setParts([{ title: "Passage 1", text: "", questions: [] }]);
-                setSpeaking({ part1: "", part2: "", part3: "" });
-                setWriting({ task1Prompt: "", task1Image: "", task2Prompt: "" });
+                if (!editId) {
+                    setTitle(""); setAudioUrl("");
+                    setParts([{ title: "Passage 1", text: "", questions: [] }]);
+                    setSpeaking({ part1: "", part2: "", part3: "" });
+                    setWriting({ task1Prompt: "", task1Image: "", task2Prompt: "" });
+                }
             } else {
                 alert("Lỗi khi lưu bài tập");
             }
@@ -349,8 +376,8 @@ export default function AdminPracticeUpload() {
                 <div className="flex items-center gap-3 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                     <Link href="/admin?tab=content" className="p-2 hover:bg-slate-100 rounded-lg"><ArrowLeft className="h-5 w-5 text-slate-600" /></Link>
                     <div className="flex-1">
-                        <h1 className="text-xl font-bold text-slate-900">Upload Bộ Đề Mới</h1>
-                        <p className="text-xs text-slate-500">Soạn bài tập chuẩn IELTS cho hệ thống</p>
+                        <h1 className="text-xl font-bold text-slate-900">{editId ? "Chỉnh Sửa Bài Tập" : "Upload Bộ Đề Mới"}</h1>
+                        <p className="text-xs text-slate-500">{editId ? "Cập nhật nội dung câu hỏi & đáp án trực tiếp" : "Soạn bài tập chuẩn IELTS cho hệ thống"}</p>
                     </div>
                     <button onClick={() => setShowJsonModal(true)} className="flex items-center gap-2 bg-blue-100 hover:bg-blue-200 text-blue-700 px-4 py-2 rounded-lg text-sm font-semibold transition">
                         <Sparkles className="h-4 w-4" /> Smart Import

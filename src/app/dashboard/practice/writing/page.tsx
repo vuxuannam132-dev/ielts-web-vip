@@ -5,8 +5,12 @@ import { Button } from "@/components/ui/button";
 import { PenTool, Clock, FileText, Send, Loader2, ChevronDown, ChevronUp, Star, ArrowLeft, BookOpen } from "lucide-react";
 import Link from "next/link";
 
+import PracticeSetListView from "@/components/practice/PracticeSetListView";
+import ComboCompletionModal from "@/components/practice/ComboCompletionModal";
+
 interface PracticeSet {
     id: string;
+    skill: string;
     title: string;
     description?: string;
     content: string;
@@ -45,18 +49,24 @@ export default function WritingPractice() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [feedback, setFeedback] = useState<AIFeedback | null>(null);
     const [showFeedback, setShowFeedback] = useState(false);
+    const [showComboModal, setShowComboModal] = useState(false);
 
     useEffect(() => {
         fetch("/api/practice?skill=writing")
             .then(r => r.json())
-            .then(data => { if (Array.isArray(data) && data.length) { setSets(data); setSelected(data[0]); } setLoading(false); })
+            .then(data => {
+                if (Array.isArray(data)) {
+                    setSets(data);
+                }
+                setLoading(false);
+            })
             .catch(() => setLoading(false));
     }, []);
 
     useEffect(() => {
         if (!selected) return;
         try { setParsed(JSON.parse(selected.content || "{}")); } catch { setParsed({}); }
-        setEssay(""); setFeedback(null); setWordCount(0); setShowFeedback(false);
+        setEssay(""); setFeedback(null); setWordCount(0); setShowFeedback(false); setShowComboModal(false);
     }, [selected]);
 
     useEffect(() => {
@@ -79,6 +89,8 @@ export default function WritingPractice() {
         return type === "Task 1" ? 150 : 250;
     };
 
+    const isComboTest = selected && (selected.skill === "COMBO" || selected.title?.toLowerCase().includes("combo") || selected.description?.toLowerCase().includes("combo"));
+
     const handleSubmit = async () => {
         if (!essay.trim()) return;
         setIsSubmitting(true); setTimerRunning(false);
@@ -92,6 +104,9 @@ export default function WritingPractice() {
             if (data.success || data.evaluation) {
                 setFeedback(data.evaluation || data.feedback);
                 setShowFeedback(true);
+                if (isComboTest) {
+                    setShowComboModal(true);
+                }
             } else { alert("Lỗi: " + data.error); }
         } catch { alert("Lỗi hệ thống."); }
         finally { setIsSubmitting(false); }
@@ -99,16 +114,13 @@ export default function WritingPractice() {
 
     if (loading) return <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-500 border-t-transparent" /></div>;
 
-    if (!sets.length || !selected) {
+    if (!selected) {
         return (
-            <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center">
-                <div className="text-center max-w-md mx-4">
-                    <div className="w-20 h-20 bg-purple-100 rounded-2xl flex items-center justify-center mx-auto mb-6"><PenTool className="h-10 w-10 text-purple-500" /></div>
-                    <h2 className="text-2xl font-bold text-slate-900 mb-3">Chưa có bài Writing</h2>
-                    <p className="text-slate-500 mb-6">Admin chưa đăng bài tập nào. Quay lại sau nhé!</p>
-                    <Link href="/dashboard"><Button>← Về Dashboard</Button></Link>
-                </div>
-            </div>
+            <PracticeSetListView
+                skillName="writing"
+                sets={sets}
+                onSelectSet={(s) => setSelected(s)}
+            />
         );
     }
 
@@ -120,14 +132,30 @@ export default function WritingPractice() {
 
     return (
         <div className="min-h-[calc(100vh-4rem)] bg-gradient-to-b from-slate-50 to-purple-50/20">
+            <ComboCompletionModal
+                isOpen={showComboModal}
+                completedCount={3}
+                totalCount={4}
+                onContinue={() => {
+                    setShowComboModal(false);
+                    window.location.href = "/dashboard/practice/speaking";
+                }}
+                onClose={() => {
+                    setShowComboModal(false);
+                    setSelected(null);
+                }}
+            />
+
             <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-6">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <Link href="/dashboard" className="p-2 hover:bg-slate-100 rounded-lg"><ArrowLeft className="h-5 w-5 text-slate-600" /></Link>
+                        <button onClick={() => setSelected(null)} className="p-2 hover:bg-slate-200 rounded-xl transition flex items-center gap-1.5 text-slate-700 font-medium text-sm bg-white border border-slate-200 shadow-sm">
+                            <ArrowLeft className="h-4 w-4" /> Danh sách bài
+                        </button>
                         <div className="h-10 w-10 rounded-xl bg-purple-100 flex items-center justify-center"><PenTool className="h-5 w-5 text-purple-600" /></div>
                         <div>
-                            <h1 className="text-xl font-bold text-slate-900">Writing Practice</h1>
-                            <p className="text-sm text-slate-500">Viết bài IELTS với AI chấm điểm</p>
+                            <h1 className="text-xl font-bold text-slate-900">{selected.title}</h1>
+                            <p className="text-xs text-slate-500">Viết bài IELTS với AI chấm điểm</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-sm font-mono">

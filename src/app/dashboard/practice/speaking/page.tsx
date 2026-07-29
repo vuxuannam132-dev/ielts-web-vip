@@ -7,10 +7,14 @@ import Link from "next/link";
 
 interface PracticeSet {
     id: string;
+    skill: string;
     title: string;
     description?: string;
     content: string;
 }
+
+import PracticeSetListView from "@/components/practice/PracticeSetListView";
+import ComboCompletionModal from "@/components/practice/ComboCompletionModal";
 
 export default function SpeakingPractice() {
     const [sets, setSets] = useState<PracticeSet[]>([]);
@@ -28,18 +32,24 @@ export default function SpeakingPractice() {
     const [audioUrl, setAudioUrl] = useState<string | null>(null);
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const audioRef = useRef<HTMLAudioElement | null>(null);
+    const [showComboModal, setShowComboModal] = useState(false);
 
     useEffect(() => {
         fetch("/api/practice?skill=speaking")
             .then(r => r.json())
-            .then(data => { if (Array.isArray(data) && data.length) { setSets(data); setSelected(data[0]); } setLoading(false); })
+            .then(data => {
+                if (Array.isArray(data)) {
+                    setSets(data);
+                }
+                setLoading(false);
+            })
             .catch(() => setLoading(false));
     }, []);
 
     useEffect(() => {
         if (!selected) return;
         try { setParsed(JSON.parse(selected.content || "{}")); } catch { setParsed({}); }
-        setEvaluation(null); setAudioUrl(null); setCurrentQuestion(0);
+        setEvaluation(null); setAudioUrl(null); setCurrentQuestion(0); setShowComboModal(false);
     }, [selected]);
 
     const playAudio = (text: string) => {
@@ -84,6 +94,8 @@ export default function SpeakingPractice() {
         setIsRecording(false);
     };
 
+    const isComboTest = selected && (selected.skill === "COMBO" || selected.title?.toLowerCase().includes("combo") || selected.description?.toLowerCase().includes("combo"));
+
     const handleSubmit = async () => {
         if (!recordedChunks.length) return alert("Bạn chưa ghi âm bài nói.");
         setIsSubmitting(true);
@@ -97,7 +109,12 @@ export default function SpeakingPractice() {
         try {
             const res = await fetch("/api/ai/speaking", { method: "POST", body: formData });
             const data = await res.json();
-            if (data.success) setEvaluation(data.evaluation);
+            if (data.success) {
+                setEvaluation(data.evaluation);
+                if (isComboTest) {
+                    setShowComboModal(true);
+                }
+            }
             else alert("Lỗi: " + data.error);
         } catch { alert("Lỗi hệ thống."); }
         finally { setIsSubmitting(false); }
@@ -105,28 +122,41 @@ export default function SpeakingPractice() {
 
     if (loading) return <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-4 border-green-500 border-t-transparent" /></div>;
 
-    if (!sets.length || !selected) {
+    if (!selected) {
         return (
-            <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center">
-                <div className="text-center max-w-md mx-4">
-                    <div className="w-20 h-20 bg-green-100 rounded-2xl flex items-center justify-center mx-auto mb-6"><Mic className="h-10 w-10 text-green-500" /></div>
-                    <h2 className="text-2xl font-bold text-slate-900 mb-3">Chưa có bài Speaking</h2>
-                    <p className="text-slate-500 mb-6">Admin chưa đăng bài tập nào. Quay lại sau nhé!</p>
-                    <Link href="/dashboard"><Button>← Về Dashboard</Button></Link>
-                </div>
-            </div>
+            <PracticeSetListView
+                skillName="speaking"
+                sets={sets}
+                onSelectSet={(s) => setSelected(s)}
+            />
         );
     }
 
     return (
         <div className="min-h-[calc(100vh-4rem)] bg-gradient-to-b from-slate-50 to-green-50/20">
+            <ComboCompletionModal
+                isOpen={showComboModal}
+                completedCount={4}
+                totalCount={4}
+                onContinue={() => {
+                    setShowComboModal(false);
+                    setSelected(null);
+                }}
+                onClose={() => {
+                    setShowComboModal(false);
+                    setSelected(null);
+                }}
+            />
+
             <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 space-y-6">
                 <div className="flex items-center gap-3">
-                    <Link href="/dashboard" className="p-2 hover:bg-slate-100 rounded-lg"><ArrowLeft className="h-5 w-5 text-slate-600" /></Link>
+                    <button onClick={() => setSelected(null)} className="p-2 hover:bg-slate-200 rounded-xl transition flex items-center gap-1.5 text-slate-700 font-medium text-sm bg-white border border-slate-200 shadow-sm">
+                        <ArrowLeft className="h-4 w-4" /> Danh sách bài
+                    </button>
                     <div className="h-10 w-10 rounded-xl bg-green-100 flex items-center justify-center"><Mic className="h-5 w-5 text-green-600" /></div>
                     <div>
-                        <h1 className="text-xl font-bold text-slate-900">Speaking Practice</h1>
-                        <p className="text-sm text-slate-500">Ghi âm và nhận điểm phát âm từ AI</p>
+                        <h1 className="text-xl font-bold text-slate-900">{selected.title}</h1>
+                        <p className="text-xs text-slate-500">Ghi âm và nhận điểm phát âm từ AI</p>
                     </div>
                 </div>
 
