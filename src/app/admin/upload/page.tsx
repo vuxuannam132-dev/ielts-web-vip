@@ -117,7 +117,7 @@ export default function AdminPracticeUpload() {
                     const baseTitle = title.trim() || parsed.title || "Bộ đề Combo";
                     const baseDiff = difficulty || parsed.difficulty || "Medium";
                     
-                    const pClassId = (typeof publishMode !== 'undefined' && publishMode === "class" && typeof classId !== 'undefined') ? classId : null;
+                    const pClassId = null;
                     
                     try {
                         const skillsToSave = ['reading', 'listening', 'writing', 'speaking'];
