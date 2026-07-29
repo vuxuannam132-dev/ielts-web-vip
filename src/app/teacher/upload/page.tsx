@@ -90,10 +90,6 @@ export default function TeacherPracticeUpload() {
     };
 
     const applyParsedData = async (parsed: any) => {
-        // Normalize parsed to an object of skills
-        let skillsObj: any = {};
-        if (Array.isArray(parsed)) {
-            
             // Normalize parsed to an object of skills
             let skillsObj: any = {};
             if (Array.isArray(parsed)) {
