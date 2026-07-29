@@ -90,26 +90,103 @@ export default function AdminPracticeUpload() {
         setParts(newParts);
     };
 
-    const handleJsonImport = () => {
+    const handleJsonImport = async () => {
         try {
             const parsed = JSON.parse(jsonImportText);
-            let content = parsed;
-
-            if (parsed[skill]) {
-                content = parsed[skill];
-            } else if (parsed.content) {
-                content = parsed.content;
+            
+            // Normalize parsed to an object of skills
+            let skillsObj: any = {};
+            if (Array.isArray(parsed)) {
+                parsed.forEach(item => {
+                    if (item.skill) {
+                        skillsObj[item.skill.toLowerCase()] = item;
+                    }
+                });
             } else {
-                if (parsed.reading) content = parsed.reading;
-                else if (parsed.listening) content = parsed.listening;
-                else if (parsed.writing) content = parsed.writing;
-                else if (parsed.speaking) content = parsed.speaking;
+                skillsObj = {
+                    reading: parsed.reading,
+                    listening: parsed.listening,
+                    writing: parsed.writing,
+                    speaking: parsed.speaking
+                };
             }
             
-            if (content.title) setTitle(content.title);
-            if (content.difficulty) setDifficulty(content.difficulty);
+            // AUTO COMBO DETECTION
+            if (skillsObj.reading && skillsObj.listening && skillsObj.writing && skillsObj.speaking) {
+                if (window.confirm("Hệ thống phát hiện JSON chứa trọn bộ 4 kỹ năng.\nBạn có muốn tự động tạo và lưu cả 4 bài tập ngay lập tức không?")) {
+                    const baseTitle = title.trim() || parsed.title || "Bộ đề Combo";
+                    const baseDiff = difficulty || parsed.difficulty || "Medium";
+                    
+                    const pClassId = (typeof publishMode !== 'undefined' && publishMode === "class" && typeof classId !== 'undefined') ? classId : null;
+                    
+                    try {
+                        const skillsToSave = ['reading', 'listening', 'writing', 'speaking'];
+                        for (let s of skillsToSave) {
+                            let sTitle = baseTitle;
+                            if (skillsObj[s] && skillsObj[s].title) {
+                                sTitle = baseTitle + " - " + s.toUpperCase();
+                            }
+                            
+                            const apiEndpoint = window.location.pathname.includes('/admin') ? '/api/admin/practice' : '/api/teacher/practice';
+                            let payloadContent = skillsObj[s].content || skillsObj[s];
+
+                            await fetch(apiEndpoint, {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                    skill: s,
+                                    title: sTitle,
+                                    difficulty: skillsObj[s]?.difficulty || baseDiff,
+                                    contentJSON: payloadContent,
+                                    classId: pClassId
+                                })
+                            });
+                        }
+                        alert("🎉 Đã tạo thành công 4 bài tập riêng biệt!");
+                        setShowJsonModal(false);
+                        setJsonImportText("");
+                        window.location.href = window.location.pathname.includes('/admin') ? "/admin" : "/teacher?tab=assignments";
+                        return;
+                    } catch (e) {
+                        alert("Có lỗi xảy ra khi lưu tự động.");
+                        return;
+                    }
+                }
+            }
+
+            let content = parsed;
+            let detectedSkill = "";
             
-            let detectedSkill = content.skill?.toLowerCase();
+            if (Array.isArray(parsed)) {
+                let matched = parsed.find(item => item.skill?.toLowerCase() === skill);
+                if (!matched && parsed.length > 0) matched = parsed[0];
+                if (matched) {
+                    content = matched.content || matched;
+                    if (matched.title && !title.trim()) setTitle(matched.title);
+                    if (matched.difficulty && !difficulty) setDifficulty(matched.difficulty);
+                    detectedSkill = matched.skill?.toLowerCase();
+                }
+            } else {
+                if (parsed[skill]) {
+                    content = parsed[skill].content || parsed[skill];
+                    if (parsed[skill].title && !title.trim()) setTitle(parsed[skill].title);
+                    if (parsed[skill].difficulty && !difficulty) setDifficulty(parsed[skill].difficulty);
+                    detectedSkill = parsed[skill].skill?.toLowerCase();
+                } else if (parsed.content) {
+                    content = parsed.content;
+                } else {
+                    if (parsed.reading) { content = parsed.reading.content || parsed.reading; detectedSkill = "reading"; }
+                    else if (parsed.listening) { content = parsed.listening.content || parsed.listening; detectedSkill = "listening"; }
+                    else if (parsed.writing) { content = parsed.writing.content || parsed.writing; detectedSkill = "writing"; }
+                    else if (parsed.speaking) { content = parsed.speaking.content || parsed.speaking; detectedSkill = "speaking"; }
+                }
+            }
+            
+            if (content.title && !title.trim()) setTitle(content.title);
+            if (content.difficulty && !difficulty) setDifficulty(content.difficulty);
+            
+            if (!detectedSkill) detectedSkill = content.skill?.toLowerCase();
+            
             if (!detectedSkill) {
                 if (content.passages && Array.isArray(content.passages)) detectedSkill = "reading";
                 else if (content.parts || content.audioUrl || content.tapescript) detectedSkill = "listening";
