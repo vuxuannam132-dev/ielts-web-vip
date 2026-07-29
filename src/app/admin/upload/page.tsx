@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Upload, Plus, Trash2, Save, Loader2, CheckCircle2, ArrowLeft, FileJson, X } from "lucide-react";
+import { Upload, Plus, Trash2, Save, Loader2, CheckCircle2, ArrowLeft, FileJson, X, Sparkles } from "lucide-react";
 import Link from "next/link";
 
 interface Question {
@@ -42,6 +42,7 @@ export default function AdminPracticeUpload() {
     // JSON Import Modal
     const [showJsonModal, setShowJsonModal] = useState(false);
     const [jsonImportText, setJsonImportText] = useState("");
+    const [isParsingAI, setIsParsingAI] = useState(false);
 
     useEffect(() => {
         const urlParams = new URLSearchParams(window.location.search);
@@ -90,9 +91,7 @@ export default function AdminPracticeUpload() {
         setParts(newParts);
     };
 
-    const handleJsonImport = async () => {
-        try {
-            const parsed = JSON.parse(jsonImportText);
+    const applyParsedData = async (parsed: any) => {
             
             // Normalize parsed to an object of skills
             let skillsObj: any = {};
@@ -225,8 +224,36 @@ export default function AdminPracticeUpload() {
             
             setShowJsonModal(false);
             setJsonImportText("");
+    };
+
+    const handleJsonImport = async () => {
+        try {
+            const parsed = JSON.parse(jsonImportText);
+            await applyParsedData(parsed);
         } catch (e) {
-            alert("JSON không hợp lệ! Vui lòng kiểm tra lại cú pháp.");
+            alert("JSON không hợp lệ! Vui lòng kiểm tra lại cú pháp hoặc thử dùng tính năng AI Smart Import.");
+        }
+    };
+
+    const handleAIImport = async () => {
+        if (!jsonImportText.trim()) return;
+        setIsParsingAI(true);
+        try {
+            const res = await fetch("/api/ai/parse-practice", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ text: jsonImportText })
+            });
+            const d = await res.json();
+            if (res.ok && d.success) {
+                await applyParsedData(d.data);
+            } else {
+                alert("AI không thể phân tích văn bản này: " + (d.error || "Lỗi không xác định"));
+            }
+        } catch (e) {
+            alert("Lỗi kết nối khi gọi AI.");
+        } finally {
+            setIsParsingAI(false);
         }
     };
 
@@ -303,8 +330,8 @@ export default function AdminPracticeUpload() {
                         <h1 className="text-xl font-bold text-slate-900">Upload Bộ Đề Mới</h1>
                         <p className="text-xs text-slate-500">Soạn bài tập chuẩn IELTS cho hệ thống</p>
                     </div>
-                    <button onClick={() => setShowJsonModal(true)} className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg text-sm font-semibold transition">
-                        <FileJson className="h-4 w-4" /> Nhập từ JSON
+                    <button onClick={() => setShowJsonModal(true)} className="flex items-center gap-2 bg-blue-100 hover:bg-blue-200 text-blue-700 px-4 py-2 rounded-lg text-sm font-semibold transition">
+                        <Sparkles className="h-4 w-4" /> Smart Import
                     </button>
                 </div>
 
@@ -525,22 +552,33 @@ export default function AdminPracticeUpload() {
                 <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50">
                     <div className="bg-white rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl">
                         <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-                            <h3 className="font-bold text-slate-800 flex items-center gap-2"><FileJson className="h-5 w-5 text-violet-600"/> Nhập Dữ Liệu Từ JSON</h3>
+                            <h3 className="font-bold text-slate-800 flex items-center gap-2"><Sparkles className="h-5 w-5 text-blue-600"/> Nhập Liệu Thông Minh (AI)</h3>
                             <button onClick={() => setShowJsonModal(false)} className="p-1 hover:bg-slate-200 rounded-lg"><X className="h-5 w-5 text-slate-500"/></button>
                         </div>
-                        <div className="p-6">
-                            <p className="text-sm text-slate-500 mb-3">Dán đoạn mã JSON chứa nội dung bài tập của bạn vào đây. Hệ thống sẽ tự động phân tích và điền vào các ô nhập liệu.</p>
+                        <div className="p-6 relative">
+                            {isParsingAI && (
+                                <div className="absolute inset-0 z-10 bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center rounded-b-2xl">
+                                    <Loader2 className="h-10 w-10 text-blue-600 animate-spin mb-4" />
+                                    <p className="text-blue-700 font-semibold animate-pulse text-lg">Thầy cô vui lòng chờ AI phân tích và up bài...</p>
+                                    <p className="text-slate-500 text-sm mt-2">Quá trình này có thể mất vài giây tuỳ thuộc vào độ dài nội dung</p>
+                                </div>
+                            )}
+                            <p className="text-sm text-slate-500 mb-3">Dán <b>đoạn văn bản thô</b> (kèm câu hỏi), bài tập copy từ Word, hoặc đoạn JSON bị lỗi vào đây. AI sẽ tự động phân tích cấu trúc, nhận diện kỹ năng và điền vào form chuẩn.</p>
                             <textarea 
                                 value={jsonImportText} 
                                 onChange={e => setJsonImportText(e.target.value)}
-                                className="w-full h-64 border border-slate-300 rounded-xl p-4 font-mono text-sm text-slate-700 bg-slate-50 focus:border-violet-500 outline-none resize-none"
-                                placeholder='{"title": "Test 1", "skill": "reading", "passages": [...]}'
+                                className="w-full h-64 border border-slate-300 rounded-xl p-4 font-mono text-sm text-slate-700 bg-slate-50 focus:border-blue-500 outline-none resize-none"
+                                placeholder='Dán đề bài (Passage, Questions, Audio Transcript...) vào đây...'
+                                disabled={isParsingAI}
                             />
                         </div>
                         <div className="p-4 border-t border-slate-100 flex justify-end gap-3 bg-slate-50">
-                            <button onClick={() => setShowJsonModal(false)} className="px-5 py-2 text-slate-600 font-semibold hover:bg-slate-200 rounded-xl transition text-sm">Hủy</button>
-                            <button onClick={handleJsonImport} disabled={!jsonImportText.trim()} className="px-5 py-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white font-semibold rounded-xl transition text-sm flex items-center gap-2">
-                                <CheckCircle2 className="h-4 w-4" /> Xác nhận Nhập
+                            <button onClick={() => setShowJsonModal(false)} disabled={isParsingAI} className="px-5 py-2 text-slate-600 font-semibold hover:bg-slate-200 rounded-xl transition text-sm">Hủy</button>
+                            <button onClick={handleJsonImport} disabled={!jsonImportText.trim() || isParsingAI} className="px-5 py-2 bg-slate-200 hover:bg-slate-300 disabled:opacity-50 text-slate-700 font-semibold rounded-xl transition text-sm flex items-center gap-2">
+                                JSON chuẩn
+                            </button>
+                            <button onClick={handleAIImport} disabled={!jsonImportText.trim() || isParsingAI} className="px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold rounded-xl transition text-sm flex items-center gap-2">
+                                <Sparkles className="h-4 w-4" /> Dùng AI chuyển đổi
                             </button>
                         </div>
                     </div>
