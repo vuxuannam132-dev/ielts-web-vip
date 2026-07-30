@@ -103,11 +103,14 @@ export default function WritingPractice() {
     const minWords = activeTask === "task1" ? 150 : 250;
 
     const handleSubmit = async () => {
-        const fullSubmissionEssay = hasBothTasks
-            ? `--- TASK 1 ---\n${essayTask1}\n\n--- TASK 2 ---\n${essayTask2}`
-            : currentEssay;
+        const taskNum = activeTask === "task1" ? 1 : 2;
+        const currentEssayText = activeTask === "task1" ? essayTask1 : essayTask2;
 
-        if (!fullSubmissionEssay.trim()) return alert("Vui lòng nhập bài viết trước khi nộp.");
+        if (!currentPrompt || currentPrompt === "Đề bài Task 1" && activeTask === "task1") {
+            return alert("Không tìm thấy đề bài. Vui lòng chọn lại bộ đề.");
+        }
+        if (!currentEssayText.trim()) return alert("Vui lòng nhập bài viết trước khi nộp.");
+        if (wordCount < minWords) return alert(`Bài viết cần ít nhất ${minWords} từ. Hiện tại bạn mới viết ${wordCount} từ.`);
 
         setIsSubmitting(true); setTimerRunning(false);
         try {
@@ -116,8 +119,9 @@ export default function WritingPractice() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     practiceSetId: selected?.id,
+                    taskNumber: taskNum,
                     prompt: currentPrompt,
-                    essay: fullSubmissionEssay
+                    userText: currentEssayText
                 })
             });
             const data = await res.json();
@@ -136,10 +140,10 @@ export default function WritingPractice() {
                     })
                     .catch(() => {});
             } else {
-                alert("Lỗi: " + data.error);
+                alert("Lỗi chấm bài: " + (data.error || "Không xác định. Vui lòng thử lại."));
             }
         } catch {
-            alert("Lỗi kết nối.");
+            alert("Lỗi kết nối. Vui lòng thử lại sau.");
         } finally {
             setIsSubmitting(false);
         }
