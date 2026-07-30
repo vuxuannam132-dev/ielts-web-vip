@@ -34,7 +34,7 @@ export default function AdminFlashcardUpload() {
             if (!res.ok) throw new Error(data.error || 'Failed to upload');
 
             alert(`Đã lưu thành công ${data.count} từ vựng!`);
-            router.push('/dashboard/practice');
+            router.push('/dashboard/practice/flashcards');
         } catch (error: any) {
             alert(error.message);
         } finally {
@@ -78,7 +78,7 @@ export default function AdminFlashcardUpload() {
     return (
         <div className="max-w-4xl mx-auto p-6 space-y-8 animate-in fade-in duration-500">
             <div className="flex items-center gap-4 border-b border-slate-200 pb-4">
-                <Link href="/dashboard/practice" className="p-2 hover:bg-slate-100 rounded-full transition text-slate-500">
+                <Link href="/dashboard/practice/flashcards" className="p-2 hover:bg-slate-100 rounded-full transition text-slate-500">
                     <ArrowLeft className="h-5 w-5" />
                 </Link>
                 <div>

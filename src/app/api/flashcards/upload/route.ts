@@ -1,8 +1,14 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { auth } from '@/auth';
 
 export async function POST(req: Request) {
     try {
+        const session = await auth();
+        if (!session?.user || (session.user as any).role !== 'ADMIN' && (session.user as any).role !== 'TEACHER') {
+            return NextResponse.json({ error: 'Unauthorized. Only Admin and Teacher can upload.' }, { status: 401 });
+        }
+
         const body = await req.json();
         const { title, description, rawData } = body;
 

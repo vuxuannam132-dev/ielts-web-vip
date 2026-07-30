@@ -1,11 +1,15 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
+import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { Layers, Plus, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export default function FlashcardsHomePage() {
+    const { data: session } = useSession();
+    const canUpload = session?.user && ((session.user as any).role === 'ADMIN' || (session.user as any).role === 'TEACHER');
+
     const [sets, setSets] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -33,11 +37,13 @@ export default function FlashcardsHomePage() {
                     <p className="text-slate-500 mt-1">Học từ vựng tiếng Anh qua thẻ lật thông minh và bài kiểm tra</p>
                 </div>
                 
-                <Link href="/dashboard/practice/flashcards/admin">
-                    <Button variant="outline" className="text-indigo-600 border-indigo-200 hover:bg-indigo-50 font-bold rounded-xl flex items-center gap-2">
-                        <Plus className="h-4 w-4" /> Thêm Bộ Từ Mới
-                    </Button>
-                </Link>
+                {canUpload && (
+                    <Link href="/dashboard/practice/flashcards/admin">
+                        <Button variant="outline" className="text-indigo-600 border-indigo-200 hover:bg-indigo-50 font-bold rounded-xl flex items-center gap-2">
+                            <Plus className="h-4 w-4" /> Thêm Bộ Từ Mới
+                        </Button>
+                    </Link>
+                )}
             </div>
 
             {isLoading ? (
@@ -49,9 +55,11 @@ export default function FlashcardsHomePage() {
             ) : sets.length === 0 ? (
                 <div className="text-center py-20">
                     <p className="text-slate-500 mb-4">Chưa có bộ từ vựng nào.</p>
-                    <Link href="/dashboard/practice/flashcards/admin">
-                        <Button className="bg-indigo-600 text-white rounded-xl">Tạo bộ đầu tiên</Button>
-                    </Link>
+                    {canUpload && (
+                        <Link href="/dashboard/practice/flashcards/admin">
+                            <Button className="bg-indigo-600 text-white rounded-xl">Tạo bộ đầu tiên</Button>
+                        </Link>
+                    )}
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
