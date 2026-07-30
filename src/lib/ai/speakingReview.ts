@@ -26,6 +26,7 @@ export interface SpeakingEvaluation {
         phonetic: string;
         error: string;
     }[];
+    discourseMarkers: string[];
     vocabularyUpgrades: {
         originalWord: string;
         advancedWord: string;
@@ -42,13 +43,29 @@ export const evaluateSpeaking = async (
 
     await checkAIBudget(userId);
 
-    // 1. Transcribe Audio using Whisper
+    // 1. Transcribe Audio using Whisper (Verbose JSON to get word timestamps)
     const transcriptionStart = Date.now();
     const transcriptRes = await openai.audio.transcriptions.create({
         file: fs.createReadStream(submission.audioFilePath),
         model: 'whisper-1',
+        response_format: 'verbose_json',
+        timestamp_granularities: ['word']
     });
     const transcriptDuration = Date.now() - transcriptionStart;
+    
+    // Calculate dead-air / pauses using word timestamps
+    const words = (transcriptRes as any).words || [];
+    let totalDeadAirSeconds = 0;
+    let pauseCount = 0;
+    
+    for (let i = 1; i < words.length; i++) {
+        const pause = words[i].start - words[i-1].end;
+        if (pause > 1.0) { // Count pauses longer than 1 second
+            totalDeadAirSeconds += pause;
+            pauseCount++;
+        }
+    }
+    
     const transcript = transcriptRes.text;
 
     const proxyAudioTokens = Math.floor(transcriptDuration / 1000) * 100;
@@ -75,7 +92,14 @@ CRITICAL RULE: First, determine if the user's transcript is primarily in Vietnam
 If it is Vietnamese or completely off-topic, set "isOffTopicOrVietnamese" to true, all scores to 0, and write a feedback asking them to speak in English based on the prompt.
 
 Evaluate the user's IELTS Speaking Part ${submission.partNumber} transcript. 
-Note: Punctuation was added by Whisper AI. To evaluate Fluency and Coherence, look for unnatural grammar structures, repeated words (stammering), and lack of cohesive devices. For Pronunciation, guess from the transcript's spelling errors (if Whisper heard a vastly different word than context implies, pronunciation was likely poor). 
+Note: Punctuation was added by Whisper AI. 
+
+To evaluate Fluency and Coherence:
+- Look for unnatural grammar structures, repeated words (stammering), and lack of cohesive devices.
+- The audio analysis detected ${pauseCount} significant pauses (>1s), totaling ${totalDeadAirSeconds.toFixed(1)} seconds of dead-air. Use this empirical data to harshly grade Fluency. If dead-air is high, cap Fluency at 5.5.
+
+For Pronunciation:
+- Guess from the transcript's spelling errors (if Whisper heard a vastly different word than context implies, pronunciation was likely poor).
 
 Strict grading rules:
 - Be harsher than a normal examiner.
@@ -122,6 +146,9 @@ Return a JSON object with EXACTLY this structure:
       "phonetic": "The correct IPA phonetic transcription (e.g. /riˈteɪl/)",
       "error": "Phân tích âm vị sai bằng tiếng Việt (e.g. 'Bạn đã phát âm sai âm cuối /l/ thành /n/...')"
     }
+  ],
+  "discourseMarkers": [
+    "Đề xuất 2-3 từ nối (Discourse markers) phù hợp (như 'Furthermore', 'Consequently') để bài nói của user mạch lạc hơn"
   ],
   "vocabularyUpgrades": [
     {

@@ -25,6 +25,8 @@ export interface ReadingEvaluation {
         userAnswer: string | string[];
         correctAnswer: string | string[];
         reason: string;
+        sourceQuote?: string;
+        paraphrasePairs?: { questionWord: string; passageWord: string }[];
     }[];
     feedback: string;
 }
@@ -77,6 +79,8 @@ Output policy:
 - Show raw score.
 - Show estimated or exact band.
 - Show each wrong answer with a precise reason in Vietnamese to help the user understand exactly why they failed.
+- For each wrong answer, you MUST provide 'sourceQuote' which is the exact sentence or phrase from the reading passage that contains the correct answer.
+- For each wrong answer, identify 'paraphrasePairs' (words in the question that were paraphrased in the passage) to help the student learn how the answer was hidden.
 - Do not soften criticism. Be strictly critical.
 
 FORMATTING REQUIREMENTS:
@@ -98,7 +102,11 @@ Return a JSON object with EXACTLY this structure:
        "questionId": number,
        "userAnswer": "The candidate's wrong input (string or array)",
        "correctAnswer": "The accepted answer according to the key (string or array)",
-       "reason": "Harsh explanation in VIETNAMESE (HTML-encoded styling) of why it is wrong. For multi-mcq, explain which options are wrong/missing."
+       "reason": "Harsh, precise reason for why it is wrong (in Vietnamese). HTML formatted.",
+       "sourceQuote": "Trích dẫn nguyên văn đoạn văn bản chứa đáp án đúng",
+       "paraphrasePairs": [
+           { "questionWord": "từ khóa trong câu hỏi", "passageWord": "từ đồng nghĩa trong bài đọc" }
+       ]
     }
   ],
   "feedback": "Strict summary feedback in VIETNAMESE (HTML-encoded styling) about their reading performance. Make it look professional."

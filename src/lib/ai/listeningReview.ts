@@ -25,6 +25,9 @@ export interface ListeningEvaluation {
         userAnswer: string | string[];
         correctAnswer: string | string[];
         reason: string;
+        sourceQuote?: string;
+        paraphrasePairs?: { questionWord: string; transcriptWord: string }[];
+        distractorAnalysis?: string;
     }[];
     feedback: string;
 }
@@ -77,6 +80,9 @@ Output policy:
 - Show raw score.
 - Show estimated or exact band.
 - Show each wrong answer with a precise reason in Vietnamese to help the user understand exactly why they failed.
+- For each wrong answer, you MUST provide 'sourceQuote' which is the exact phrase from the audio transcript containing the correct answer.
+- For each wrong answer, identify 'paraphrasePairs' (words in the question that were paraphrased in the audio).
+- For each wrong answer, provide 'distractorAnalysis' to explain if the audio contained a trap (e.g. the speaker changed their mind or mentioned a wrong option to distract).
 - Do not soften criticism. Be strictly critical.
 
 FORMATTING REQUIREMENTS:
@@ -98,7 +104,12 @@ Return a JSON object with EXACTLY this structure:
        "questionId": number,
        "userAnswer": "The candidate's wrong input (string or array)",
        "correctAnswer": "The accepted answer according to the key (string or array)",
-       "reason": "Harsh explanation in VIETNAMESE (HTML-encoded styling) of why it is wrong. For multi-mcq, explain which options are wrong/missing."
+       "reason": "Harsh, precise reason for why it is wrong (in Vietnamese). HTML formatted.",
+       "sourceQuote": "Trích dẫn câu thoại chứa đáp án đúng trong Tapescript",
+       "paraphrasePairs": [
+           { "questionWord": "từ khóa trong câu hỏi", "transcriptWord": "từ đồng nghĩa trong bài nghe" }
+       ],
+       "distractorAnalysis": "Phân tích bẫy (ví dụ: người nói nhắc đến đáp án A nhưng sau đó đổi ý chọn B...)"
     }
   ],
   "feedback": "Strict summary feedback in VIETNAMESE (HTML-encoded styling) about their listening performance. Make it look professional."

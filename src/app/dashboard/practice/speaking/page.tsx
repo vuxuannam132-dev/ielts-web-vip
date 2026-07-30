@@ -7,6 +7,8 @@ import PracticeSetListView from "@/components/practice/PracticeSetListView";
 import ComboCompletionModal from "@/components/practice/ComboCompletionModal";
 import ResultsSummaryModal from "@/components/practice/ResultsSummaryModal";
 import OverallScorecardModal from "@/components/practice/OverallScorecardModal";
+import SpeakingFeedbackView from "@/components/practice/SpeakingFeedbackView";
+import MotivationalScreen from "@/components/practice/MotivationalScreen";
 
 interface PracticeSet {
     id: string;
@@ -123,6 +125,7 @@ export default function SpeakingPractice() {
     const [showOverallModal, setShowOverallModal] = useState(false);
     const [overallBand, setOverallBand] = useState(0);
     const [skillScores, setSkillScores] = useState<any>({});
+    const [showMotivational, setShowMotivational] = useState(false);
 
     useEffect(() => {
         fetch("/api/practice?skill=speaking")
@@ -135,7 +138,15 @@ export default function SpeakingPractice() {
     }, []);
 
     useEffect(() => {
-        if (!selected) return;
+        if (!selected) {
+            if (Math.random() < 0.3) {
+                const settings = localStorage.getItem('hideMotivational');
+                if (settings !== 'true') {
+                    setShowMotivational(true);
+                }
+            }
+            return;
+        }
         try {
             const parsed = JSON.parse(selected.content || "{}");
             setSpeakingData(parseSpeakingContent(parsed));
@@ -269,11 +280,14 @@ export default function SpeakingPractice() {
 
     if (!selected) {
         return (
-            <PracticeSetListView
-                skillName="speaking"
-                sets={sets}
-                onSelectSet={(s) => setSelected(s)}
-            />
+            <>
+                <MotivationalScreen isOpen={showMotivational} onClose={() => setShowMotivational(false)} />
+                <PracticeSetListView
+                    skillName="speaking"
+                    sets={sets}
+                    onSelectSet={(s) => setSelected(s)}
+                />
+            </>
         );
     }
 
@@ -287,8 +301,19 @@ export default function SpeakingPractice() {
                 onRetry={() => {
                     setEvaluation(null); setAudioUrl(null); setShowResultsModal(false); setRecordedChunks([]);
                 }}
-                onBackToList={() => setSelected(null)}
+                onBackToList={() => {
+                    setShowResultsModal(false);
+                    const settings = localStorage.getItem('hideMotivational');
+                    if (settings !== 'true') {
+                        setShowMotivational(true);
+                        setTimeout(() => setSelected(null), 500);
+                    } else {
+                        setSelected(null);
+                    }
+                }}
             />
+
+            <MotivationalScreen isOpen={showMotivational} onClose={() => { setShowMotivational(false); if (showResultsModal === false) setSelected(null); }} />
 
             <ComboCompletionModal
                 isOpen={showComboModal}
@@ -458,6 +483,9 @@ export default function SpeakingPractice() {
                         </Button>
                     </div>
                 </div>
+
+                {/* AI Feedback View */}
+                {evaluation && <SpeakingFeedbackView evaluation={evaluation} />}
             </div>
         </div>
     );

@@ -6,7 +6,9 @@ import { PenTool, Clock, ArrowLeft, Send, Sparkles } from "lucide-react";
 import PracticeSetListView from "@/components/practice/PracticeSetListView";
 import ComboCompletionModal from "@/components/practice/ComboCompletionModal";
 import ResultsSummaryModal from "@/components/practice/ResultsSummaryModal";
+import MotivationalScreen from "@/components/practice/MotivationalScreen";
 import OverallScorecardModal from "@/components/practice/OverallScorecardModal";
+import WritingFeedbackView from "@/components/practice/WritingFeedbackView";
 
 interface PracticeSet {
     id: string;
@@ -50,6 +52,7 @@ export default function WritingPractice() {
     const [timeLeft, setTimeLeft] = useState(60 * 60);
     const [timerRunning, setTimerRunning] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [showMotivational, setShowMotivational] = useState(false);
 
     const [feedback, setFeedback] = useState<AIFeedback | null>(null);
     const [showResultsModal, setShowResultsModal] = useState(false);
@@ -69,7 +72,15 @@ export default function WritingPractice() {
     }, []);
 
     useEffect(() => {
-        if (!selected) return;
+        if (!selected) {
+            if (Math.random() < 0.3) {
+                const settings = localStorage.getItem('hideMotivational');
+                if (settings !== 'true') {
+                    setShowMotivational(true);
+                }
+            }
+            return;
+        }
         try { setParsed(JSON.parse(selected.content || "{}")); } catch { setParsed({}); }
         setEssayTask1(""); setEssayTask2(""); setFeedback(null);
         setActiveTask("task1"); setShowResultsModal(false); setShowComboModal(false); setShowOverallModal(false);
@@ -129,7 +140,6 @@ export default function WritingPractice() {
                 setFeedback(data.evaluation || data.feedback);
                 setShowResultsModal(true);
 
-                // Fetch latest user stats
                 fetch("/api/user/stats")
                     .then(r => r.json())
                     .then(stats => {
@@ -159,11 +169,14 @@ export default function WritingPractice() {
 
     if (!selected) {
         return (
-            <PracticeSetListView
-                skillName="writing"
-                sets={sets}
-                onSelectSet={(s) => setSelected(s)}
-            />
+            <>
+                <MotivationalScreen isOpen={showMotivational} onClose={() => setShowMotivational(false)} />
+                <PracticeSetListView
+                    skillName="writing"
+                    sets={sets}
+                    onSelectSet={(s) => setSelected(s)}
+                />
+            </>
         );
     }
 
@@ -177,8 +190,19 @@ export default function WritingPractice() {
                 onRetry={() => {
                     setEssayTask1(""); setEssayTask2(""); setFeedback(null); setShowResultsModal(false); setTimeLeft(60 * 60);
                 }}
-                onBackToList={() => setSelected(null)}
+                onBackToList={() => {
+                    setShowResultsModal(false);
+                    const settings = localStorage.getItem('hideMotivational');
+                    if (settings !== 'true') {
+                        setShowMotivational(true);
+                        setTimeout(() => setSelected(null), 500);
+                    } else {
+                        setSelected(null);
+                    }
+                }}
             />
+
+            <MotivationalScreen isOpen={showMotivational} onClose={() => { setShowMotivational(false); if (showResultsModal === false) setSelected(null); }} />
 
             <ComboCompletionModal
                 isOpen={showComboModal}
@@ -303,6 +327,9 @@ export default function WritingPractice() {
                         </Button>
                     </div>
                 </div>
+
+                {/* AI Feedback View */}
+                {feedback && <WritingFeedbackView feedback={feedback} />}
             </div>
         </div>
     );

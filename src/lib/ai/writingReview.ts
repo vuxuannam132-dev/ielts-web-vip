@@ -23,6 +23,12 @@ export interface IdeaExpansion {
     suggestion: string;
 }
 
+export interface ParagraphRewrite {
+    original: string;
+    rewrite: string;
+    explanation: string;
+}
+
 export interface WritingEvaluation {
     bandScore: number;
     taskAchievementScore: number;
@@ -32,6 +38,9 @@ export interface WritingEvaluation {
     feedback: string;
     inlineCorrections: InlineCorrection[];
     ideaExpansion: IdeaExpansion[];
+    paragraphRewrites: ParagraphRewrite[];
+    templateWarnings: string[];
+    outline: string[];
     improvements?: string[];
 }
 
@@ -70,11 +79,12 @@ Strict grading rules:
 - Be harsher than a normal examiner.
 - Never give the benefit of the doubt.
 - Penalize underdevelopment of ideas heavily.
-- Penalize vague, generic, repetitive, or memorized-sounding content.
+- Penalize vague, generic, repetitive, or memorized-sounding content. Flag any clichés like "With the development of society" in the templateWarnings array.
 - Penalize weak paragraphing and mechanical linking devices (e.g. Firstly, Secondly, In conclusion).
 - Penalize every noticeable grammar error, awkward phrase, unnatural collocation, incorrect word form, article misuse, punctuation problem, tense inconsistency, and subject-verb disagreement.
 - Treat awkward but understandable language as an error.
 - If the essay partially answers the task, reduce the task score sharply.
+- For Task 1: Check mathematical/logical accuracy. If the candidate describes a trend or number incorrectly based on common sense logic of the prompt (e.g. saying a number tripled when it only doubled), heavily penalize Task Achievement.
 - If vocabulary is repetitive or inaccurate, reduce Lexical Resource.
 - If grammar errors are frequent, keep Grammatical Range and Accuracy low.
 - Do not praise effort.
@@ -117,12 +127,27 @@ Return a JSON object with EXACTLY this structure:
   "vocabularyScore": number,
   "grammarScore": number,
   "feedback": "Chỉ trích thẳng thắn, ngắn gọn bằng tiếng Việt. Không khen ngợi dài dòng.",
+  "outline": [
+    "Câu tóm tắt luận điểm chính của Đoạn 1",
+    "Câu tóm tắt luận điểm chính của Đoạn 2",
+    "..."
+  ],
+  "templateWarnings": [
+    "Cụm từ sáo rỗng/học vẹt bị phát hiện (nếu có, ví dụ: 'With the development of society')"
+  ],
   "inlineCorrections": [
     {
       "originalText": "câu bị sai hoặc lủng củng của user",
       "improvedText": "câu sửa lại mượt mà, tự nhiên và học thuật hơn",
       "type": "Vocabulary Upgrade / Sentence Restructuring / Grammar / Collocation",
       "explanation": "Giải thích chi tiết tại sao sai và cấu trúc mới tốt hơn như thế nào (bằng tiếng Việt)"
+    }
+  ],
+  "paragraphRewrites": [
+    {
+      "original": "Đoạn văn gốc nguyên bản của người dùng (từ 2-3 câu trở lên)",
+      "rewrite": "Đoạn văn được viết lại hoàn hảo đạt Band 8.0+, giữ nguyên ý tưởng gốc nhưng nâng cấp toàn diện về từ vựng và cấu trúc ngữ pháp",
+      "explanation": "Giải thích ngắn gọn lý do tại sao đoạn viết lại hay hơn (tiếng Việt)"
     }
   ],
   "ideaExpansion": [

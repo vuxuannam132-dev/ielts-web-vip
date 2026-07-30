@@ -230,3 +230,31 @@ model ClassAssignment {
   updatedAt   DateTime @updatedAt
 }
 
+// ───────────────────────────────────────────────
+// Flashcard System
+// ───────────────────────────────────────────────
+
+model FlashcardSet {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  isActive    Boolean  @default(true)
+  
+  cards       Flashcard[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Flashcard {
+  id        String   @id @default(cuid())
+  setId     String
+  set       FlashcardSet @relation(fields: [setId], references: [id], onDelete: Cascade)
+  
+  term      String   // Tiếng Anh
+  meaning   String   // Nghĩa tiếng Việt
+  ipa       String?  // Phiên âm (không bắt buộc)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

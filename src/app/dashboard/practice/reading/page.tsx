@@ -8,6 +8,7 @@ import ComboCompletionModal from "@/components/practice/ComboCompletionModal";
 import ResultsSummaryModal from "@/components/practice/ResultsSummaryModal";
 import OverallScorecardModal from "@/components/practice/OverallScorecardModal";
 import FloatingTextHighlighter from "@/components/practice/FloatingTextHighlighter";
+import MotivationalScreen from "@/components/practice/MotivationalScreen";
 
 interface Question {
     id?: number;
@@ -58,6 +59,7 @@ export default function ReadingPractice() {
     const [showOverallModal, setShowOverallModal] = useState(false);
     const [overallBand, setOverallBand] = useState(0);
     const [skillScores, setSkillScores] = useState<any>({});
+    const [showMotivational, setShowMotivational] = useState(false);
 
     useEffect(() => {
         fetch("/api/practice?skill=reading")
@@ -70,7 +72,15 @@ export default function ReadingPractice() {
     }, []);
 
     useEffect(() => {
-        if (!selected) return;
+        if (!selected) {
+            if (Math.random() < 0.3) {
+                const settings = localStorage.getItem('hideMotivational');
+                if (settings !== 'true') {
+                    setShowMotivational(true);
+                }
+            }
+            return;
+        }
         try { setParsed(JSON.parse(selected.content || "{}")); } catch { setParsed({}); }
         setAnswers({}); setSubmitted(false); setEvaluation(null);
         setActivePassageIdx(0); setShowResultsModal(false); setShowComboModal(false); setShowOverallModal(false);
@@ -211,11 +221,14 @@ export default function ReadingPractice() {
 
     if (!selected) {
         return (
-            <PracticeSetListView
-                skillName="reading"
-                sets={sets}
-                onSelectSet={(s) => setSelected(s)}
-            />
+            <>
+                <MotivationalScreen isOpen={showMotivational} onClose={() => setShowMotivational(false)} />
+                <PracticeSetListView
+                    skillName="reading"
+                    sets={sets}
+                    onSelectSet={(s) => setSelected(s)}
+                />
+            </>
         );
     }
 
@@ -229,8 +242,19 @@ export default function ReadingPractice() {
                 onRetry={() => {
                     setSubmitted(false); setEvaluation(null); setAnswers({}); setShowResultsModal(false); setTimeLeft(60 * 60);
                 }}
-                onBackToList={() => setSelected(null)}
+                onBackToList={() => {
+                    setShowResultsModal(false);
+                    const settings = localStorage.getItem('hideMotivational');
+                    if (settings !== 'true') {
+                        setShowMotivational(true);
+                        setTimeout(() => setSelected(null), 500);
+                    } else {
+                        setSelected(null);
+                    }
+                }}
             />
+
+            <MotivationalScreen isOpen={showMotivational} onClose={() => { setShowMotivational(false); if (showResultsModal === false) setSelected(null); }} />
 
             <ComboCompletionModal
                 isOpen={showComboModal}
@@ -442,7 +466,26 @@ export default function ReadingPractice() {
                                                                 <XCircle className="h-4 w-4" /> Sai — Đáp án đúng: <strong>{q.type === "multi-mcq" ? q.answers?.join(", ") : q.answer}</strong>
                                                             </div>
                                                             {wrong?.reason && (
-                                                                <div className="text-slate-600 bg-white p-2 rounded-lg border border-red-100 mt-1" dangerouslySetInnerHTML={{ __html: wrong.reason }} />
+                                                                <div className="text-slate-600 bg-white p-3 rounded-lg border border-red-100 mt-2 text-sm leading-relaxed" dangerouslySetInnerHTML={{ __html: wrong.reason }} />
+                                                            )}
+                                                            {wrong?.sourceQuote && (
+                                                                <div className="mt-2 bg-amber-50 p-3 rounded-lg border border-amber-100">
+                                                                    <div className="text-xs font-bold text-amber-800 mb-1">📍 Trích dẫn dẫn chứng (Source Quote):</div>
+                                                                    <div className="text-xs text-amber-700 italic">"{wrong.sourceQuote}"</div>
+                                                                </div>
+                                                            )}
+                                                            {wrong?.paraphrasePairs && wrong.paraphrasePairs.length > 0 && (
+                                                                <div className="mt-2 bg-indigo-50 p-3 rounded-lg border border-indigo-100">
+                                                                    <div className="text-xs font-bold text-indigo-800 mb-2">🔄 Paraphrase Analysis:</div>
+                                                                    <div className="grid grid-cols-2 gap-2">
+                                                                        {wrong.paraphrasePairs.map((pair: any, i: number) => (
+                                                                            <div key={i} className="flex flex-col bg-white p-2 rounded border border-indigo-50 text-[11px]">
+                                                                                <span className="text-slate-500 font-medium">Trong câu hỏi: <span className="text-indigo-600 font-bold">{pair.questionWord}</span></span>
+                                                                                <span className="text-slate-500 font-medium mt-1">Trong bài đọc: <span className="text-emerald-600 font-bold">{pair.passageWord}</span></span>
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
                                                             )}
                                                         </div>
                                                     )}

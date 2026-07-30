@@ -9,7 +9,7 @@ import {
     BookOpen, Headphones, PenTool, Mic,
     Flame, Trophy, Target, Zap, CheckCircle2,
     Calendar, LayoutDashboard, Settings, Edit2, Star,
-    ArrowRight, AlertCircle, Loader2, Clock, Award
+    ArrowRight, AlertCircle, Loader2, Clock, Award, Layers
 } from "lucide-react";
 import { getDailyMissions } from "@/lib/missions";
 import OnboardingModal from "@/components/OnboardingModal";
@@ -156,6 +156,7 @@ function DashboardContent() {
         { href: "/dashboard/practice/reading", icon: BookOpen, label: "Reading Practice", desc: "Luyện đọc đoạn văn dài và ngắn", color: "blue" },
         { href: "/dashboard/practice/writing", icon: PenTool, label: "Writing Practice", desc: "Chấm essay Task 1 & 2 với AI", color: "purple" },
         { href: "/dashboard/practice/speaking", icon: Mic, label: "Speaking Room", desc: "Ghi âm và nhận điểm phát âm", color: "green" },
+        { href: "/dashboard/practice/flashcards", icon: Layers, label: "Flashcards", desc: "Học và kiểm tra từ vựng", color: "indigo" },
     ];
     const colorMap: any = {
         orange: { bg: "bg-orange-50", text: "text-orange-600", badge: "bg-orange-100 text-orange-700", hover: "hover:border-orange-200" },
@@ -205,6 +206,7 @@ function DashboardContent() {
                         <SidebarLink href="/dashboard/practice/reading" icon={BookOpen} label="Reading" />
                         <SidebarLink href="/dashboard/practice/writing" icon={PenTool} label="Writing" />
                         <SidebarLink href="/dashboard/practice/speaking" icon={Mic} label="Speaking" />
+                        <SidebarLink href="/dashboard/practice/flashcards" icon={Layers} label="Flashcards" />
                     </nav>
 
                     <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 mt-8">Tài khoản</h2>

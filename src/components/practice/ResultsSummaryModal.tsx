@@ -1,8 +1,9 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import { Award, CheckCircle2, XCircle, HelpCircle, ArrowRight, RotateCcw, X, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { triggerFireworks } from "@/lib/utils/confetti";
 
 export interface EvaluationData {
     bandScore: number;
@@ -43,6 +44,12 @@ export default function ResultsSummaryModal({
     onRetry,
     onBackToList,
 }: ResultsSummaryModalProps) {
+    useEffect(() => {
+        if (isOpen) {
+            triggerFireworks();
+        }
+    }, [isOpen]);
+
     if (!isOpen || !evaluation) return null;
 
     const meta = skillMeta[skill];
