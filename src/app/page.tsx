@@ -36,11 +36,11 @@ export default async function Home() {
             <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
             Nền tảng luyện thi IELTS ứng dụng AI #1
           </div>
-          <h1 className="text-5xl md:text-7xl font-extrabold text-slate-900 tracking-tight leading-loose mb-6 text-balance">
-            Chinh phục <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">IELTS 8.0</span> <br className="hidden md:block" /> dễ dàng hơn bao giờ hết
+          <h1 className="text-5xl md:text-7xl font-extrabold text-slate-900 tracking-tight leading-tight mb-6 text-balance capitalize">
+            web này do thằng <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">Xuân Nam</span> tạo nên <br className="hidden md:block" /> để chống lại sự lười biếng của bạn
           </h1>
           <p className="mt-4 text-xl text-slate-600 max-w-2xl mx-auto leading-relaxed text-balance">
-            Trải nghiệm không gian học chuẩn quốc tế với AI mô phỏng cựu giám khảo chấm điểm Writing & Speaking chi tiết theo 4 tiêu chí.
+            ở web này ông được làm bài và chấm chữa với AI gần như chuẩn với giám khảo ielts, nên là học đi =)))
           </p>
           <div className="mt-10 flex flex-col sm:flex-row justify-center gap-4">
             <Link href={isLoggedIn ? "/dashboard" : "/register"} className="px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-2xl hover:shadow-xl hover:shadow-blue-600/30 transition-all hover:-translate-y-1 flex items-center justify-center gap-2 text-lg">
