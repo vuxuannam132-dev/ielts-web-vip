@@ -16,6 +16,8 @@ interface CheckoutUIProps {
     transferContent: string;
     packageId: string;
     packageCode: string;
+    initialTier: string;
+    initialExpiresAt: string | null;
 }
 
 export default function CheckoutUI({
@@ -26,7 +28,9 @@ export default function CheckoutUI({
     amount,
     transferContent,
     packageId,
-    packageCode
+    packageCode,
+    initialTier,
+    initialExpiresAt
 }: CheckoutUIProps) {
     const router = useRouter();
     const [verifying, setVerifying] = useState(false);
@@ -51,7 +55,27 @@ export default function CheckoutUI({
                 const res = await fetch("/api/user/stats");
                 if (res.ok) {
                     const data = await res.json();
-                    if (data && data.tier && data.tier.toUpperCase() === packageCode.toUpperCase()) {
+                    
+                    let upgraded = false;
+                    if (data && data.tier) {
+                        if (initialTier.toUpperCase() !== packageCode.toUpperCase()) {
+                            // If they are buying a DIFFERENT tier, just check if tier changed to packageCode
+                            if (data.tier.toUpperCase() === packageCode.toUpperCase()) {
+                                upgraded = true;
+                            }
+                        } else {
+                            // If they are buying the SAME tier (accumulate), check if expiresAt has increased
+                            if (data.tier.toUpperCase() === packageCode.toUpperCase()) {
+                                const initialDate = initialExpiresAt ? new Date(initialExpiresAt) : new Date(0);
+                                const newDate = data.tierExpiresAt ? new Date(data.tierExpiresAt) : new Date(0);
+                                if (newDate.getTime() > initialDate.getTime()) {
+                                    upgraded = true;
+                                }
+                            }
+                        }
+                    }
+
+                    if (upgraded) {
                         clearInterval(interval);
                         // Force session refresh before redirect
                         await update({ tier: data.tier });

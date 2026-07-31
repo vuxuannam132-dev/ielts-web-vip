@@ -146,6 +146,8 @@ function CheckoutContent() {
                             transferContent={transferContent}
                             packageId={pkg.id}
                             packageCode={pkg.code}
+                            initialTier={currentTier}
+                            initialExpiresAt={userStatus?.tierExpiresAt || null}
                         />
                     )}
                 </div>
