@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Copy, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useSession } from "next-auth/react";
 
 interface CheckoutUIProps {
     bankName: string;
@@ -32,8 +33,10 @@ export default function CheckoutUI({
     const [error, setError] = useState<string | null>(null);
     const [copiedContent, setCopiedContent] = useState<string | null>(null);
 
-    const handleCopy = (text: string, type: string) => {
-        navigator.clipboard.writeText(text);
+    const { update } = useSession();
+
+    const handleCopy = (content: string, type: string) => {
+        navigator.clipboard.writeText(content);
         setCopiedContent(type);
         setTimeout(() => setCopiedContent(null), 2000);
     };
@@ -50,6 +53,8 @@ export default function CheckoutUI({
                     const data = await res.json();
                     if (data && data.tier && data.tier.toUpperCase() === packageCode.toUpperCase()) {
                         clearInterval(interval);
+                        // Force session refresh before redirect
+                        await update({ tier: data.tier });
                         window.location.href = "/dashboard?upgraded=true";
                     }
                 }
