@@ -17,10 +17,10 @@ export async function POST(req: NextRequest) {
             referenceNumber = tx.tid || tx.id?.toString();
         } 
         // Detect SePay payload
-        else if (body.amountIn !== undefined) {
-            amountIn = body.amountIn;
-            transactionContent = body.transactionContent;
-            referenceNumber = body.referenceNumber || body.id?.toString();
+        else if (body.transferAmount !== undefined || body.amountIn !== undefined) {
+            amountIn = body.transferAmount || body.amountIn;
+            transactionContent = body.content || body.transactionContent;
+            referenceNumber = body.referenceCode || body.referenceNumber || body.id?.toString();
         } else {
             return NextResponse.json({ success: true, message: "Unknown webhook format" });
         }

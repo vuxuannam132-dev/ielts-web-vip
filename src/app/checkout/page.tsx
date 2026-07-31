@@ -58,7 +58,7 @@ function CheckoutContent() {
     if (!pkg) return null;
 
     const userId = (session?.user as any)?.id || "";
-    const transferContent = `NANGCAP${userId.substring(0, 6).toUpperCase()} ${pkgCode}`;
+    const transferContent = `${pkgCode} NANGCAP${userId.substring(0, 6).toUpperCase()}`;
     const benefits = pkg.benefits ? JSON.parse(pkg.benefits) : [];
 
     return (

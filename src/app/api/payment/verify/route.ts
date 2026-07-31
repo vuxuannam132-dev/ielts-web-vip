@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: true, status: "SUCCESS" });
     }
 
-    const transferContent = `NANGCAP${session.id.substring(0, 6).toUpperCase()} ${packageCode}`;
+    const transferContent = `${packageCode} NANGCAP${session.id.substring(0, 6).toUpperCase()}`;
 
     // Check for existing pending tx  
     const existingTx = await prisma.transaction.findFirst({
