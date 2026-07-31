@@ -54,7 +54,8 @@ async function main() {
                 description: 'Làm quen với bài thi và format.',
                 benefits: JSON.stringify([
                     "Truy cập bộ đề Reading & Listening",
-                    "Giới hạn 2 bài chấm AI / ngày",
+                    "Giới hạn 2 bài chấm AI/ngày ở 1 kỹ năng",
+                    "Phân tích chuyên sâu 4 tiêu chí",
                     "Community group"
                 ]),
                 isActive: true
@@ -81,7 +82,7 @@ async function main() {
                 benefits: JSON.stringify([
                     "Mọi quyền lợi của gói Pro",
                     "Tiết kiệm 20% so với mua hàng tháng",
-                    "Hỗ trợ riêng qua email"
+                    "Hỗ trợ trực tiếp qua SĐT/Zalo 0708393751"
                 ]),
                 isActive: true
             }

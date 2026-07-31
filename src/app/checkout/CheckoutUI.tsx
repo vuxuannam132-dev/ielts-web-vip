@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Copy, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
@@ -38,36 +38,28 @@ export default function CheckoutUI({
         setTimeout(() => setCopiedContent(null), 2000);
     };
 
-    // Fallback QR if none uploaded
     const defaultQrUrl = `https://img.vietqr.io/image/${bankName}-${accNumber}-compact2.jpg?amount=${amount}&addInfo=${encodeURIComponent(transferContent)}&accountName=${encodeURIComponent(accName)}`;
     const finalQrUrl = qrUrl || defaultQrUrl;
 
-    const handleVerifyPayment = async () => {
-        setVerifying(true);
-        setError(null);
-        try {
-            // Mock API endpoint for simulating successful payment
-            const res = await fetch("/api/payment/verify", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ packageId, packageCode }),
-            });
-
-            const data = await res.json();
-
-            if (data.success) {
-                // Force a hard navigation to dashboard to refresh session/roles
-                window.location.href = "/dashboard?upgraded=true";
-            } else {
-                setError(data.error || "Không thể xác nhận thanh toán. Vui lòng thử lại sau hoặc liên hệ Admin.");
-                setVerifying(false);
+    useEffect(() => {
+        // Poll every 3 seconds to check if webhook has upgraded the user
+        const interval = setInterval(async () => {
+            try {
+                const res = await fetch("/api/user/stats");
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && data.tier && data.tier.toUpperCase() === packageCode.toUpperCase()) {
+                        clearInterval(interval);
+                        window.location.href = "/dashboard?upgraded=true";
+                    }
+                }
+            } catch (err) {
+                // ignore network errors during polling
             }
-        } catch (err) {
-            console.error("Payment verification failed", err);
-            setError("Lỗi kết nối. Vui lòng thử lại.");
-            setVerifying(false);
-        }
-    };
+        }, 3000);
+
+        return () => clearInterval(interval);
+    }, [packageCode]);
 
     return (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden flex flex-col h-full">
@@ -122,7 +114,7 @@ export default function CheckoutUI({
                         <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500"></div>
                         <div className="pl-2">
                             <p className="text-xs text-blue-600 font-bold mb-0.5 flex items-center gap-1">
-                                Nội dung chuyển khoản <span className="text-[10px] bg-red-100 text-red-600 px-1.5 rounded uppercase font-black">Quan trọng</span>
+                                Nội dung chuyển khoản <span className="text-[10px] bg-red-100 text-red-600 px-1.5 rounded uppercase font-black">Bắt buộc</span>
                             </p>
                             <p className="font-black text-blue-900 text-lg uppercase tracking-wider">{transferContent}</p>
                         </div>
@@ -135,28 +127,11 @@ export default function CheckoutUI({
                     </div>
                 </div>
 
-                {error && (
-                    <div className="w-full p-4 mb-4 bg-red-50 text-red-700 rounded-xl border border-red-200 text-sm flex items-start gap-2">
-                        <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
-                        <span>{error}</span>
-                    </div>
-                )}
-
-                <Button
-                    onClick={handleVerifyPayment}
-                    disabled={verifying}
-                    className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-6 text-lg rounded-xl transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 disabled:opacity-70 disabled:hover:translate-y-0"
-                >
-                    {verifying ? (
-                        <>
-                            <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                            Đang xác minh giao dịch...
-                        </>
-                    ) : (
-                        "Tôi đã chuyển khoản xong"
-                    )}
-                </Button>
-                <p className="text-xs text-slate-500 mt-4 text-center">Hệ thống sẽ tự động kích hoạt tài khoản trong vòng 1-3 phút sau khi nhận được thanh toán.</p>
+                <div className="w-full bg-slate-900 text-white font-bold py-4 px-6 text-lg rounded-xl shadow-lg flex items-center justify-center gap-3">
+                    <Loader2 className="h-6 w-6 animate-spin text-blue-400" />
+                    Đang chờ thanh toán...
+                </div>
+                <p className="text-sm text-slate-500 mt-4 text-center">Hệ thống sẽ tự động kích hoạt tài khoản trong vòng 1-3 phút sau khi nhận được thanh toán.</p>
             </div>
         </div>
     );

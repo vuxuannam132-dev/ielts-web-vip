@@ -1,106 +1,108 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import crypto from "crypto";
 
-/**
- * Casso Webhook endpoint
- * Casso calls this URL when a bank transfer is detected.
- * Set the webhook URL to: https://your-domain.vercel.app/api/payment/webhook
- * Set webhook secret in Admin → System Settings as `casso_webhook_secret`
- */
 export async function POST(req: NextRequest) {
     try {
-        const body = await req.text();
-        const signature = req.headers.get("x-casso-signature") || "";
+        const body = await req.json();
 
-        // Fetch secret from DB
-        const secretConfig = await prisma.systemConfig.findUnique({ where: { key: "casso_webhook_secret" } });
-        const webhookSecret = secretConfig?.value || "";
+        let amountIn = 0;
+        let transactionContent = "";
+        let referenceNumber = "";
 
-        // Verify HMAC signature if secret is configured
-        if (webhookSecret) {
-            const hmac = crypto.createHmac("sha256", webhookSecret).update(body).digest("hex");
-            if (hmac !== signature) {
-                console.error("[Casso Webhook] Invalid signature");
-                return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
-            }
+        // Detect Casso.vn payload
+        if (body.data && Array.isArray(body.data) && body.data.length > 0) {
+            const tx = body.data[0];
+            amountIn = tx.amount;
+            transactionContent = tx.description;
+            referenceNumber = tx.tid || tx.id?.toString();
+        } 
+        // Detect SePay payload
+        else if (body.amountIn !== undefined) {
+            amountIn = body.amountIn;
+            transactionContent = body.transactionContent;
+            referenceNumber = body.referenceNumber || body.id?.toString();
+        } else {
+            return NextResponse.json({ success: true, message: "Unknown webhook format" });
         }
 
-        const payload = JSON.parse(body);
-        // Casso sends array of transactions
-        const transactions = Array.isArray(payload.data) ? payload.data : [payload.data];
+        // Ensure this is a positive incoming transaction
+        if (!amountIn || amountIn <= 0) {
+            return NextResponse.json({ success: true, message: "Ignored, not an incoming transaction" });
+        }
 
-        for (const tx of transactions) {
-            if (!tx) continue;
-            const description: string = (tx.description || tx.memo || "").toUpperCase();
+        if (!transactionContent) {
+            return NextResponse.json({ success: true, message: "Ignored, no content" });
+        }
 
-            // Find matching pending transaction by transfer content (IELTS XXXXXX CODE)
-            const pending = await prisma.transaction.findFirst({
-                where: {
-                    status: "PENDING",
-                    transferContent: { mode: "insensitive", contains: "IELTS" }
-                },
-                orderBy: { createdAt: "desc" }
-            });
+        const contentUpper = transactionContent.toUpperCase();
+        
+        // Find user by matching ID prefix
+        const users = await prisma.user.findMany({
+            select: { id: true, email: true }
+        });
 
-            if (!pending) continue;
+        const matchedUser = users.find(u => contentUpper.includes(`IELTS ${u.id.substring(0, 6).toUpperCase()}`));
 
-            // Extract code from description: "IELTS ABCDEF PRO"
-            const parts = description.split(" ");
-            const ieltIdx = parts.indexOf("IELTS");
-            if (ieltIdx === -1) continue;
+        if (!matchedUser) {
+            console.error("Webhook unmatched user for content:", transactionContent);
+            return NextResponse.json({ success: true, message: "User not found" });
+        }
 
-            const shortId = parts[ieltIdx + 1];
-            const pkgCode = parts[ieltIdx + 2];
+        // Find package code in the content
+        const packages = await prisma.package.findMany({
+            where: { isActive: true }
+        });
 
-            if (!shortId || !pkgCode) continue;
+        const matchedPackage = packages.find(p => contentUpper.includes(p.code.toUpperCase()));
 
-            // Find the exact matching pending transaction
-            const matchedTx = await prisma.transaction.findFirst({
-                where: {
-                    status: "PENDING",
-                    packageCode: pkgCode,
-                    transferContent: { contains: shortId, mode: "insensitive" }
+        if (!matchedPackage) {
+            console.error("Webhook unmatched package for content:", transactionContent);
+            return NextResponse.json({ success: true, message: "Package not found" });
+        }
+
+        if (amountIn < matchedPackage.price) {
+            console.error(`Webhook amount ${amountIn} is less than package price ${matchedPackage.price}`);
+            return NextResponse.json({ success: true, message: "Insufficient amount" });
+        }
+
+        const existingTx = await prisma.transaction.findFirst({
+            where: { cassoId: referenceNumber }
+        });
+
+        if (existingTx) {
+            return NextResponse.json({ success: true, message: "Already processed" });
+        }
+
+        const expiresAt = matchedPackage.durationDays 
+            ? new Date(Date.now() + matchedPackage.durationDays * 24 * 60 * 60 * 1000)
+            : null;
+
+        await prisma.$transaction(async (tx) => {
+            await tx.transaction.create({
+                data: {
+                    userId: matchedUser.id,
+                    packageCode: matchedPackage.code,
+                    amount: amountIn,
+                    transferContent: transactionContent,
+                    status: "SUCCESS",
+                    cassoId: referenceNumber || body.id?.toString(),
                 }
             });
 
-            if (!matchedTx) continue;
+            await tx.user.update({
+                where: { id: matchedUser.id },
+                data: {
+                    tier: matchedPackage.code,
+                    tierExpiresAt: expiresAt,
+                }
+            });
+        });
 
-            // Validate amount
-            const pkg = await prisma.package.findUnique({ where: { code: pkgCode } });
-            if (!pkg) continue;
+        console.log(`Successfully upgraded user ${matchedUser.email} to ${matchedPackage.code}`);
+        return NextResponse.json({ success: true, message: "Payment processed successfully" });
 
-            // Allow payment to proceed if amount matches (Casso sends in VND)
-            const paidAmount = Number(tx.amount || tx.creditAmount || 0);
-            if (paidAmount < pkg.price) {
-                console.log(`[Casso] Amount mismatch: expected ${pkg.price}, got ${paidAmount}`);
-                continue;
-            }
-
-            // Upgrade user!
-            let tierExpiresAt = null;
-            if (pkg.durationDays) {
-                tierExpiresAt = new Date();
-                tierExpiresAt.setDate(tierExpiresAt.getDate() + pkg.durationDays);
-            }
-
-            await prisma.$transaction([
-                prisma.transaction.update({
-                    where: { id: matchedTx.id },
-                    data: { status: "SUCCESS", cassoId: String(tx.id || "") }
-                }),
-                prisma.user.update({
-                    where: { id: matchedTx.userId },
-                    data: { tier: pkgCode, tierExpiresAt }
-                })
-            ]);
-
-            console.log(`[Casso] ✅ Upgraded user ${matchedTx.userId} to ${pkgCode}`);
-        }
-
-        return NextResponse.json({ success: true });
     } catch (error) {
-        console.error("[Casso Webhook Error]:", error);
-        return NextResponse.json({ error: "Webhook processing failed" }, { status: 500 });
+        console.error("Webhook Error:", error);
+        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
     }
 }

@@ -81,16 +81,19 @@ export async function PUT(req: NextRequest) {
 
     try {
         const body = await req.json();
-        const { targetBand, currentBand, weakestSkill, onboardingDone, bandReminderShown } = body;
+        const { targetBand, currentBand, weakestSkill, onboardingDone, bandReminderShown, school, occupation, referralSource } = body;
 
         const updated = await prisma.user.update({
             where: { id: session.id },
             data: {
-                ...(targetBand !== undefined ? { targetBand: parseFloat(targetBand) } : {}),
-                ...(currentBand !== undefined ? { currentBand: parseFloat(currentBand) } : {}),
+                ...(targetBand !== undefined ? { targetBand: targetBand !== null ? parseFloat(targetBand) : null } : {}),
+                ...(currentBand !== undefined ? { currentBand: currentBand !== null ? parseFloat(currentBand) : null } : {}),
                 ...(weakestSkill !== undefined ? { weakestSkill } : {}),
                 ...(onboardingDone !== undefined ? { onboardingDone } : {}),
                 ...(bandReminderShown !== undefined ? { bandReminderShown } : {}),
+                ...(school !== undefined ? { school } : {}),
+                ...(occupation !== undefined ? { occupation } : {}),
+                ...(referralSource !== undefined ? { referralSource } : {}),
             }
         });
 
