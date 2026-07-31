@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
             select: { id: true, email: true }
         });
 
-        const matchedUser = users.find(u => contentUpper.includes(`IELTS ${u.id.substring(0, 6).toUpperCase()}`));
+        const matchedUser = users.find(u => contentUpper.includes(`NANGCAP${u.id.substring(0, 6).toUpperCase()}`));
 
         if (!matchedUser) {
             console.error("Webhook unmatched user for content:", transactionContent);
