@@ -265,14 +265,31 @@ function UsersManager() {
         else alert("Lỗi khi reset mật khẩu!");
     };
 
+    const handleDeleteUser = async (id: string, email: string) => {
+        if (!confirm(`Bạn có chắc chắn muốn xóa user ${email} không? Hành động này không thể hoàn tác!`)) return;
+        
+        const res = await fetch(`/api/admin/users?userId=${id}`, {
+            method: 'DELETE',
+        });
+        if (res.ok) {
+            setUsers(users.filter(u => u.id !== id));
+            alert("Đã xóa user thành công!");
+        } else {
+            const data = await res.json();
+            alert(`Lỗi: ${data.error}`);
+        }
+    };
+
+
     if (loading) return <Loader2 className="text-blue-600 animate-spin mx-auto mt-20" />;
 
     return (
         <div className="space-y-6">
             <h2 className="text-2xl font-bold">Quản lý người dùng</h2>
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                <table className="w-full text-left text-sm">
-                    <thead className="bg-slate-50 text-slate-600">
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm whitespace-nowrap">
+                        <thead className="bg-slate-50 text-slate-600">
                         <tr>
                             <th className="px-6 py-4 font-semibold">Email / Tên</th>
                             <th className="px-6 py-4 font-semibold">Role</th>
@@ -325,11 +342,15 @@ function UsersManager() {
                                     <button onClick={() => handleResetPassword(u.id, u.email)} title="Đổi mật khẩu" className="p-2 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg">
                                         <KeyRound className="h-4 w-4" />
                                     </button>
+                                    <button onClick={() => handleDeleteUser(u.id, u.email)} title="Xóa User" className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg">
+                                        <Trash2 className="h-4 w-4" />
+                                    </button>
                                 </td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
+                </div>
             </div>
         </div>
     );

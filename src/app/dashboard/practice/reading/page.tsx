@@ -331,9 +331,9 @@ export default function ReadingPractice() {
                 )}
 
                 {/* Main Split Layout */}
-                <div className="grid lg:grid-cols-2 gap-6">
+                <div className="flex flex-col lg:grid lg:grid-cols-2 gap-6">
                     {/* Left: Passage Text */}
-                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col max-h-[75vh]">
+                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col max-h-[50vh] lg:max-h-[75vh]">
                         <div className="bg-slate-50 border-b border-slate-200 p-3 px-6 flex justify-between items-center">
                             <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
                                 📖 {currentPassage.title || `Passage ${activePassageIdx + 1}`}
@@ -349,7 +349,7 @@ export default function ReadingPractice() {
                     </div>
 
                     {/* Right: Questions for Active Passage */}
-                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-5 overflow-y-auto max-h-[75vh] flex flex-col justify-between">
+                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-5 overflow-visible lg:overflow-y-auto lg:max-h-[75vh] flex flex-col justify-between">
                         <div className="space-y-5">
                             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                                 <span className="font-bold text-slate-800 text-sm">

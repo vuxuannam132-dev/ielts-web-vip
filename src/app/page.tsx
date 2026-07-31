@@ -36,10 +36,10 @@ export default async function Home() {
             <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
             Nền tảng luyện thi IELTS ứng dụng AI #1
           </div>
-          <h1 className="text-5xl md:text-7xl font-extrabold text-slate-900 tracking-tight leading-tight mb-6 text-balance capitalize">
+          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold text-slate-900 tracking-tight leading-tight mb-6 text-balance capitalize">
             web này do thằng <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">Xuân Nam</span> tạo nên <br className="hidden md:block" /> để chống lại sự lười biếng của bạn
           </h1>
-          <p className="mt-4 text-xl text-slate-600 max-w-2xl mx-auto leading-relaxed text-balance">
+          <p className="mt-4 text-lg md:text-xl text-slate-600 max-w-2xl mx-auto leading-relaxed text-balance">
             ở web này ông được làm bài và chấm chữa với AI gần như chuẩn với giám khảo ielts, nên là học đi =)))
           </p>
           <div className="mt-10 flex flex-col sm:flex-row justify-center gap-4">
@@ -52,33 +52,33 @@ export default async function Home() {
           </div>
 
           {/* Stats */}
-          <div className="mt-20 grid grid-cols-2 md:grid-cols-4 gap-8 max-w-4xl mx-auto pt-8 border-t border-slate-200/60">
+          <div className="mt-20 grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8 max-w-4xl mx-auto pt-8 border-t border-slate-200/60">
             <div>
-              <p className="text-4xl font-extrabold text-slate-900">10k+</p>
-              <p className="text-sm text-slate-500 font-medium mt-1">Học viên tin dùng</p>
+              <p className="text-3xl md:text-4xl font-extrabold text-slate-900">10k+</p>
+              <p className="text-xs md:text-sm text-slate-500 font-medium mt-1">Học viên tin dùng</p>
             </div>
             <div>
-              <p className="text-4xl font-extrabold text-slate-900">50k+</p>
-              <p className="text-sm text-slate-500 font-medium mt-1">Bài test đã chấm</p>
+              <p className="text-3xl md:text-4xl font-extrabold text-slate-900">4 Skills</p>
+              <p className="text-xs md:text-sm text-slate-500 font-medium mt-1">Luyện tập toàn diện</p>
             </div>
             <div>
-              <p className="text-4xl font-extrabold text-slate-900">15%</p>
-              <p className="text-sm text-slate-500 font-medium mt-1">Tăng điểm trung bình</p>
+              <p className="text-3xl md:text-4xl font-extrabold text-slate-900">AI Scoring</p>
+              <p className="text-xs md:text-sm text-slate-500 font-medium mt-1">Chấm chuẩn giám khảo</p>
             </div>
             <div>
-              <p className="text-4xl font-extrabold text-slate-900">4</p>
-              <p className="text-sm text-slate-500 font-medium mt-1">Kỹ năng toàn diện</p>
+              <p className="text-3xl md:text-4xl font-extrabold text-slate-900">24/7</p>
+              <p className="text-xs md:text-sm text-slate-500 font-medium mt-1">Giải đáp thắc mắc</p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Features Section */}
+      {/* Features */}
       <section id="features" className="py-24 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">Mọi thứ bạn cần để đạt điểm cao</h2>
-            <p className="text-lg text-slate-600 max-w-2xl mx-auto">Công nghệ AI tiên tiến nhất được áp dụng để tối ưu hóa quá trình học tập của bạn.</p>
+            <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">Mọi thứ bạn cần để đạt Band 8.0</h2>
+            <p className="text-lg text-slate-600 max-w-2xl mx-auto">Hệ thống phân tích điểm yếu và đưa ra lộ trình tối ưu hóa điểm số của bạn.</p>
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
