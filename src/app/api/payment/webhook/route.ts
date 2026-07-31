@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
         
         // Find user by matching ID prefix
         const users = await prisma.user.findMany({
-            select: { id: true, email: true, tier: true, tierExpiresAt: true }
+            select: { id: true, email: true, tier: true, tierExpiresAt: true, role: true }
         });
 
         const matchedUser = users.find(u => contentUpper.includes(`NANGCAP${u.id.substring(0, 6).toUpperCase()}`));
@@ -87,6 +87,11 @@ export async function POST(req: NextRequest) {
             }
         }
 
+        let newRole = matchedUser.role;
+        if (matchedPackage.code === "TEACHER" && matchedUser.role !== "ADMIN") {
+            newRole = "TEACHER";
+        }
+
         await prisma.$transaction(async (tx) => {
             await tx.transaction.create({
                 data: {
@@ -104,6 +109,7 @@ export async function POST(req: NextRequest) {
                 data: {
                     tier: matchedPackage.code,
                     tierExpiresAt: newExpiresAt,
+                    role: newRole,
                 }
             });
         });

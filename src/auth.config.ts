@@ -40,7 +40,7 @@ export const authConfig: NextAuthConfig = {
         async session({ session, token }) {
             if (token && session.user) {
                 session.user.id = token.id as string;
-                (session.user as any).role = token.role as string;
+                (session.user as any).role = token.tier === 'TEACHER' ? 'TEACHER' : (token.role as string);
                 (session.user as any).tier = token.tier as string;
                 (session.user as any).isVerified = token.isVerified as boolean;
             }
