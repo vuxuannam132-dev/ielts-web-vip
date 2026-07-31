@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
         
         // Find user by matching ID prefix
         const users = await prisma.user.findMany({
-            select: { id: true, email: true }
+            select: { id: true, email: true, tier: true, tierExpiresAt: true }
         });
 
         const matchedUser = users.find(u => contentUpper.includes(`NANGCAP${u.id.substring(0, 6).toUpperCase()}`));
@@ -73,9 +73,19 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ success: true, message: "Already processed" });
         }
 
-        const expiresAt = matchedPackage.durationDays 
-            ? new Date(Date.now() + matchedPackage.durationDays * 24 * 60 * 60 * 1000)
-            : null;
+        let newExpiresAt: Date | null = null;
+        if (matchedPackage.durationDays) {
+            const now = new Date();
+            const additionalMs = matchedPackage.durationDays * 24 * 60 * 60 * 1000;
+            
+            if (matchedUser.tier === matchedPackage.code && matchedUser.tierExpiresAt && matchedUser.tierExpiresAt > now) {
+                // Same tier and not expired => accumulate
+                newExpiresAt = new Date(matchedUser.tierExpiresAt.getTime() + additionalMs);
+            } else {
+                // Different tier or expired => start from now
+                newExpiresAt = new Date(now.getTime() + additionalMs);
+            }
+        }
 
         await prisma.$transaction(async (tx) => {
             await tx.transaction.create({
@@ -93,7 +103,7 @@ export async function POST(req: NextRequest) {
                 where: { id: matchedUser.id },
                 data: {
                     tier: matchedPackage.code,
-                    tierExpiresAt: expiresAt,
+                    tierExpiresAt: newExpiresAt,
                 }
             });
         });

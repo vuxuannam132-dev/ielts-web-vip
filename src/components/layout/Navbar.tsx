@@ -200,12 +200,10 @@ export function Navbar() {
                                                         <GraduationCap className="h-4 w-4" /> Tham gia lớp học
                                                     </button>
                                                 )}
-                                                {user?.tier === 'FREE' && (
-                                                    <Link href="/#pricing" onClick={() => setDropdownOpen(false)}
-                                                        className="flex items-center gap-2 px-4 py-2 text-sm text-amber-600 hover:bg-amber-50 transition font-medium">
-                                                        <Zap className="h-4 w-4" /> Nâng cấp VIP
-                                                    </Link>
-                                                )}
+                                                <Link href="/#pricing" onClick={() => setDropdownOpen(false)}
+                                                    className="flex items-center gap-2 px-4 py-2 text-sm text-amber-600 hover:bg-amber-50 transition font-medium">
+                                                    <Zap className="h-4 w-4" /> Nâng cấp tài khoản
+                                                </Link>
                                                 <button onClick={handleLogout}
                                                     className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition">
                                                     <LogOut className="h-4 w-4" /> Đăng xuất
@@ -257,11 +255,9 @@ export function Navbar() {
                                 <Link href="/account" className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50" onClick={() => setMenuOpen(false)}>
                                     <User className="h-4 w-4" /> Tài khoản
                                 </Link>
-                                {user?.tier === 'FREE' && (
-                                    <Link href="/#pricing" className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-amber-600 hover:bg-amber-50" onClick={() => setMenuOpen(false)}>
-                                        <Zap className="h-4 w-4" /> Nâng cấp VIP 🔥
-                                    </Link>
-                                )}
+                                <Link href="/#pricing" className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-amber-600 hover:bg-amber-50" onClick={() => setMenuOpen(false)}>
+                                    <Zap className="h-4 w-4" /> Nâng cấp tài khoản 🔥
+                                </Link>
                                 <button onClick={handleLogout} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50">
                                     <LogOut className="h-4 w-4" /> Đăng xuất
                                 </button>

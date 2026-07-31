@@ -13,7 +13,7 @@ export async function GET() {
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { isLocked: true, role: true, tier: true }
+      select: { isLocked: true, role: true, tier: true, tierExpiresAt: true }
     })
 
     if (!user) {
@@ -24,7 +24,8 @@ export async function GET() {
       authenticated: true,
       isLocked: user.isLocked,
       role: user.role,
-      tier: user.tier
+      tier: user.tier,
+      tierExpiresAt: user.tierExpiresAt
     })
   } catch (error) {
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })

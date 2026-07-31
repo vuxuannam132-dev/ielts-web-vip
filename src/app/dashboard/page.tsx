@@ -216,14 +216,12 @@ function DashboardContent() {
                 </div>
 
                 {/* VIP Upgrade button in sidebar */}
-                {rank === "FREE" && (
-                    <div className="p-4">
-                        <Link href="/checkout?pkg=PRO"
-                            className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white text-sm font-bold shadow-md hover:shadow-lg hover:scale-[1.02] transition-all">
-                            <Zap className="h-4 w-4" /> Nâng cấp VIP
-                        </Link>
-                    </div>
-                )}
+                <div className="p-4">
+                    <Link href="/#pricing"
+                        className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white text-sm font-bold shadow-md hover:shadow-lg hover:scale-[1.02] transition-all">
+                        <Zap className="h-4 w-4" /> Nâng cấp tài khoản
+                    </Link>
+                </div>
             </aside>
 
             {/* Main Content */}
@@ -237,19 +235,17 @@ function DashboardContent() {
                     </div>
                 </div>
 
-                {/* VIP Upsell Banner */}
-                {rank === "FREE" && (
-                    <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 rounded-2xl p-6 text-white shadow-lg shadow-orange-500/20 flex flex-col md:flex-row items-center justify-between gap-6 overflow-hidden relative">
-                        <div className="absolute right-0 top-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-20 -mt-20" />
-                        <div className="relative z-10">
-                            <h2 className="text-xl font-bold mb-2 flex items-center gap-2"><Zap className="h-5 w-5 fill-white" /> Khai phá tối đa tiềm năng AI</h2>
-                            <p className="text-orange-50 text-sm md:max-w-xl leading-relaxed">Bạn đang sử dụng gói Basic giới hạn lượt chấm IELTS Writing & Speaking. Nâng cấp để nhận feedback không giới hạn chuẩn examiner từ AI.</p>
-                        </div>
-                        <Link href="/checkout?pkg=PRO" className="shrink-0 bg-white text-orange-600 font-bold px-6 py-3 rounded-xl shadow-sm hover:scale-105 transition-transform relative z-10 w-full md:w-auto text-center">
-                            Nâng cấp VIP ngay
-                        </Link>
+                {/* VIP Upsell / Upgrade Banner */}
+                <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 rounded-2xl p-6 text-white shadow-lg shadow-orange-500/20 flex flex-col md:flex-row items-center justify-between gap-6 overflow-hidden relative">
+                    <div className="absolute right-0 top-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-20 -mt-20" />
+                    <div className="relative z-10">
+                        <h2 className="text-xl font-bold mb-2 flex items-center gap-2"><Zap className="h-5 w-5 fill-white" /> Khai phá tối đa tiềm năng AI</h2>
+                        <p className="text-orange-50 text-sm md:max-w-xl leading-relaxed">Nâng cấp tài khoản để nhận feedback không giới hạn chuẩn examiner từ AI, truy cập kho bài mẫu 8.0+ và luyện thi không lo gián đoạn.</p>
                     </div>
-                )}
+                    <Link href="/#pricing" className="shrink-0 bg-white text-orange-600 font-bold px-6 py-3 rounded-xl shadow-sm hover:scale-105 transition-transform relative z-10 w-full md:w-auto text-center">
+                        {rank === "FREE" ? "Nâng cấp VIP ngay" : "Gia hạn / Nâng cấp"}
+                    </Link>
+                </div>
 
                 {/* Stats Grid */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
