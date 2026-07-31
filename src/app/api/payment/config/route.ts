@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
     const configs = await prisma.systemConfig.findMany({
         where: {
-            key: { in: ['payment_bank_name', 'payment_account_number', 'payment_account_name', 'payment_qr_url'] }
+            key: { in: ['bankName', 'bankAccount', 'accountHolder', 'bankQRUrl', 'payment_bank_name', 'payment_account_number', 'payment_account_name', 'payment_qr_url'] }
         }
     });
 
@@ -16,9 +16,9 @@ export async function GET() {
     }
 
     return NextResponse.json({
-        bankName: map['payment_bank_name'] || "N/A",
-        accNumber: map['payment_account_number'] || "N/A",
-        accName: map['payment_account_name'] || "N/A",
-        qrUrl: map['payment_qr_url'] || null,
+        bankName: map['bankName'] || map['payment_bank_name'] || "N/A",
+        accNumber: map['bankAccount'] || map['payment_account_number'] || "N/A",
+        accName: map['accountHolder'] || map['payment_account_name'] || "N/A",
+        qrUrl: map['bankQRUrl'] || map['payment_qr_url'] || null,
     });
 }
