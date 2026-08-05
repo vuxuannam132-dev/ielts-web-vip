@@ -11,6 +11,7 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "IELTS SKIBIDI - Practice & Succeed",
   description: "Nền tảng luyện thi IELTS ứng dụng AI #1 - IELTS SKIBIDI",
+  manifest: "/manifest.json",
 };
 
 import { WelcomeModal } from "@/components/WelcomeModal";
